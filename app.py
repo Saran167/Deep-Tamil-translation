@@ -10,6 +10,8 @@ import requests
 import urllib.parse
 import json
 import time
+import PyPDF2
+import docx
 
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
@@ -106,6 +108,8 @@ if 'is_recording' not in st.session_state:
     st.session_state.is_recording = False
 if 'recorded_audio' not in st.session_state:
     st.session_state.recorded_audio = None
+if 'voice_input_text' not in st.session_state:
+    st.session_state.voice_input_text = ""
 
 # ==================== FUNCTIONS ====================
 
@@ -121,54 +125,10 @@ def stop_recording():
     # Simulate processing - in real app, this would process actual audio
     time.sleep(1)
     st.session_state.recorded_audio = "simulated_audio.mp3"
-    return "This is a simulated voice input. In real implementation, this would convert speech to text."
-
-# --- Simplified Voice Input using Browser API ---
-def voice_input_html():
-    """HTML/JavaScript for browser voice recording"""
-    return """
-    <script>
-    function startRecording() {
-        if (!('webkitSpeechRecognition' in window)) {
-            alert("Your browser doesn't support speech recognition. Try Chrome.");
-            return;
-        }
-        
-        const recognition = new webkitSpeechRecognition();
-        recognition.lang = 'ta-IN'; // Tamil India
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        
-        recognition.onresult = function(event) {
-            const transcript = event.results[0][0].transcript;
-            document.getElementById('voice-input').value = transcript;
-            document.getElementById('voice-form').submit();
-        };
-        
-        recognition.start();
-    }
-    </script>
-    
-    <button onclick="startRecording()" style="
-        background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%);
-        color: white;
-        border: none;
-        padding: 12px 24px;
-        border-radius: 8px;
-        font-size: 16px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin: 10px 0;
-    ">
-        🎤 Start Speaking (Tamil/English)
-    </button>
-    
-    <form id="voice-form">
-        <input type="hidden" id="voice-input" name="voice_text">
-    </form>
-    """
+    # For demo, use a sample text
+    sample_text = "This is a simulated voice input. In real implementation, this would convert speech to text."
+    st.session_state.voice_input_text = sample_text
+    return sample_text
 
 # --- Translation Functions ---
 def translate_to_tamil(text):
@@ -211,15 +171,18 @@ def simplify_english(text):
     }
     
     # Simple word replacement
+    simplified_text = text
     for complex_word, simple_word in simplification_dict.items():
-        if complex_word in text.lower():
-            text = text.lower().replace(complex_word, simple_word)
+        if complex_word in simplified_text.lower():
+            # Case insensitive replacement
+            import re
+            simplified_text = re.compile(re.escape(complex_word), re.IGNORECASE).sub(simple_word, simplified_text)
     
     # Capitalize first letter
-    if text:
-        text = text[0].upper() + text[1:]
+    if simplified_text:
+        simplified_text = simplified_text[0].upper() + simplified_text[1:]
     
-    return text
+    return simplified_text
 
 # --- Audio Generation ---
 def generate_audio(text, language='ta', filename="audio.mp3"):
@@ -227,7 +190,8 @@ def generate_audio(text, language='ta', filename="audio.mp3"):
         tts = gTTS(text=text, lang=language, slow=False)
         tts.save(filename)
         return filename
-    except:
+    except Exception as e:
+        st.error(f"Audio generation failed: {str(e)}")
         return None
 
 # --- Chatbot Functions ---
@@ -235,16 +199,11 @@ class SimpleChatbot:
     def __init__(self):
         self.context = ""
         self.qa_pairs = {
-            # General questions about translation
             "what is this": "This is a translation of your text.",
             "translate again": "I can translate it again for you.",
             "explain": "Let me explain the translation...",
-            
-            # Tamil specific
             "tamil meaning": "This is the Tamil translation of your text.",
             "speak tamil": "I will speak the Tamil translation.",
-            
-            # English specific
             "simple english": "This is simplified English for easy understanding.",
             "explain english": "The English version uses simpler words.",
         }
@@ -260,7 +219,6 @@ class SimpleChatbot:
     def answer_question(self, question, ask_in_tamil=False):
         """Answer questions based on context"""
         
-        # If question is in Tamil, translate to English first
         question_lower = question.lower()
         
         # Check for keywords
@@ -343,7 +301,6 @@ with tab1:
         with col_rec2:
             if st.button("⏹️ Stop Recording", key="stop_rec", use_container_width=True):
                 voice_text = stop_recording()
-                st.session_state.voice_input_text = voice_text
                 st.success("✅ Voice recorded! Text extracted below.")
         
         # Show recording status
@@ -356,11 +313,11 @@ with tab1:
             """, unsafe_allow_html=True)
         
         # Display voice input text
-        if 'voice_input_text' in st.session_state:
-            st.text_area("🎤 Your Voice Input:", st.session_state.voice_input_text, height=150)
-            
-            # Use this text for translation
-            if st.button("✨ Translate Voice Input", type="primary"):
+        st.text_area("🎤 Your Voice Input:", st.session_state.voice_input_text, height=150, key="voice_input_area")
+        
+        # Use this text for translation
+        if st.button("✨ Translate Voice Input", type="primary", key="translate_voice"):
+            if st.session_state.voice_input_text:
                 st.session_state.current_translation = {
                     'original': st.session_state.voice_input_text,
                     'tamil': translate_to_tamil(st.session_state.voice_input_text),
@@ -384,13 +341,15 @@ with tab1:
         - Complete sentences
         """)
         
-        # Browser-based voice input (alternative)
+        # Alternative voice input method
         st.markdown("---")
-        st.markdown("### 🌐 Browser Voice Input")
-        st.markdown("*(For Chrome users only)*")
-        
-        # Inject HTML/JS for browser voice
-        components.html(voice_input_html(), height=200)
+        st.markdown("### 🌐 Alternative Method")
+        st.markdown("""
+        For real voice input:
+        1. Use your phone's voice typing
+        2. Copy the text
+        3. Paste in Tab 2
+        """)
 
 # ==================== TAB 2: TEXT/IMAGE INPUT ====================
 with tab2:
@@ -401,7 +360,8 @@ with tab2:
     with col_input:
         input_method = st.radio(
             "✨ Choose input method:",
-            ["✍️ Type/Paste Text", "📁 Upload File (TXT/DOCX/PDF)"]
+            ["✍️ Type/Paste Text", "📁 Upload File (TXT/DOCX/PDF)"],
+            key="input_method"
         )
         
         input_text = ""
@@ -411,43 +371,46 @@ with tab2:
                 "Enter text in any language:",
                 height=200,
                 placeholder="Type or paste your text here...\nYou can type in English, Tamil, Hindi, etc.",
-                key="text_input"
+                key="text_input_main"
             )
         
         else:  # Upload File
             uploaded_file = st.file_uploader(
                 "Choose a file",
                 type=['txt', 'docx', 'pdf'],
-                help="Supports: .txt, .docx, .pdf files"
+                help="Supports: .txt, .docx, .pdf files",
+                key="file_uploader"
             )
             if uploaded_file:
-                if uploaded_file.name.endswith('.txt'):
-                    input_text = uploaded_file.read().decode()
-                elif uploaded_file.name.endswith('.docx'):
-                    import docx
-                    doc = docx.Document(uploaded_file)
-                    input_text = "\n".join([para.text for para in doc.paragraphs])
-                elif uploaded_file.name.endswith('.pdf'):
-                    import PyPDF2
-                    pdf_reader = PyPDF2.PdfReader(uploaded_file)
-                    input_text = ""
-                    for page in pdf_reader.pages:
-                        input_text += page.extract_text()
-                
-                st.text_area("📄 Extracted Text:", input_text, height=150)
+                try:
+                    if uploaded_file.name.endswith('.txt'):
+                        input_text = uploaded_file.read().decode()
+                    elif uploaded_file.name.endswith('.docx'):
+                        doc = docx.Document(uploaded_file)
+                        input_text = "\n".join([para.text for para in doc.paragraphs])
+                    elif uploaded_file.name.endswith('.pdf'):
+                        pdf_reader = PyPDF2.PdfReader(uploaded_file)
+                        input_text = ""
+                        for page in pdf_reader.pages:
+                            input_text += page.extract_text()
+                    
+                    st.text_area("📄 Extracted Text:", input_text, height=150, key="extracted_text")
+                except Exception as e:
+                    st.error(f"Error reading file: {str(e)}")
     
     with col_settings:
         st.markdown("### ⚙️ Output Settings")
         
         output_option = st.radio(
             "🎯 Select output:",
-            ["🇮🇳 Tamil Only", "🇬🇧 Simple English Only", "🌍 Both Languages"]
+            ["🇮🇳 Tamil Only", "🇬🇧 Simple English Only", "🌍 Both Languages"],
+            key="output_option"
         )
         
         st.markdown("---")
         
-        voice_option = st.checkbox("🔊 Generate voice output", value=True)
-        doc_option = st.checkbox("📄 Create downloadable file", value=True)
+        voice_option = st.checkbox("🔊 Generate voice output", value=True, key="voice_option")
+        doc_option = st.checkbox("📄 Create downloadable file", value=True, key="doc_option")
         
         st.markdown("---")
         
@@ -455,7 +418,7 @@ with tab2:
             "✨ TRANSLATE NOW",
             type="primary",
             use_container_width=True,
-            key="translate_btn"
+            key="translate_btn_main"
         )
     
     # Process translation
@@ -492,6 +455,20 @@ with tab2:
         st.markdown("---")
         st.markdown("## 📊 Translation Results")
         
+        # Show what changed if English was simplified
+        if output_option in ["🇬🇧 Simple English Only", "🌍 Both Languages"]:
+            original = st.session_state.current_translation['original']
+            english = st.session_state.current_translation['english']
+            if english != original:
+                st.markdown("### 🔄 Simplification Changes")
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.markdown("**Original:**")
+                    st.info(original[:200] + "..." if len(original) > 200 else original)
+                with col_b:
+                    st.markdown("**Simplified:**")
+                    st.success(english[:200] + "..." if len(english) > 200 else english)
+        
         if output_option == "🌍 Both Languages":
             col_tamil, col_english = st.columns(2)
             
@@ -503,7 +480,7 @@ with tab2:
                 """, unsafe_allow_html=True)
                 st.write(st.session_state.current_translation['tamil'])
                 
-                if voice_option:
+                if voice_option and st.session_state.current_translation['tamil']:
                     audio_file = generate_audio(
                         st.session_state.current_translation['tamil'], 
                         'ta',
@@ -539,7 +516,7 @@ with tab2:
             </div>
             """.format(st.session_state.current_translation['tamil']), unsafe_allow_html=True)
             
-            if voice_option:
+            if voice_option and st.session_state.current_translation['tamil']:
                 audio_file = generate_audio(
                     st.session_state.current_translation['tamil'],
                     'ta',
@@ -604,32 +581,33 @@ with tab3:
         if chat_input_method == "✍️ Type Question":
             user_question = st.text_input(
                 "Type your question in Tamil or English:",
-                placeholder="E.g., 'What does this mean in Tamil?' or 'இதன் பொருள் என்ன?'"
+                placeholder="E.g., 'What does this mean in Tamil?' or 'இதன் பொருள் என்ன?'",
+                key="question_input"
             )
         else:
-            # Voice input for chat
-            col_v1, col_v2 = st.columns(2)
-            with col_v1:
-                if st.button("🎤 Speak Question", use_container_width=True):
-                    st.info("Speaking... (Simulated - would use speech recognition)")
-                    # In real implementation, this would capture voice
-                    user_question = "What is the meaning of this text?"
+            # Voice input for chat (simulated)
+            if st.button("🎤 Speak Question", use_container_width=True, key="speak_question"):
+                st.info("🎤 Speaking... (Simulated - would use speech recognition)")
+                # For demo, use a sample question
+                user_question = "What is the meaning of this text?"
+                st.session_state.demo_question = user_question
             
-            with col_v2:
-                if st.button("🎧 Listen to Answer", use_container_width=True):
-                    st.info("Would play answer audio")
+            if 'demo_question' in st.session_state:
+                user_question = st.session_state.demo_question
+                st.text_input("Your question:", user_question, key="demo_q_input")
         
         # Language for answer
         answer_language = st.radio(
             "Answer in:",
             ["🇮🇳 Tamil", "🇬🇧 English"],
-            horizontal=True
+            horizontal=True,
+            key="answer_lang"
         )
         
         ask_in_tamil = (answer_language == "🇮🇳 Tamil")
         
         # Ask button
-        if user_question and st.button("🤖 Ask Question", type="primary"):
+        if user_question and st.button("🤖 Ask Question", type="primary", key="ask_btn"):
             # Get answer from chatbot
             answer = chatbot.answer_question(user_question, ask_in_tamil)
             
@@ -647,7 +625,7 @@ with tab3:
             st.markdown(f"<div class='chat-message-bot'>{answer}</div>", unsafe_allow_html=True)
             
             # Generate voice for answer
-            if st.button("🔊 Hear Answer Voice"):
+            if st.button("🔊 Hear Answer Voice", key="hear_answer"):
                 answer_audio = generate_audio(
                     answer,
                     'ta' if ask_in_tamil else 'en',
@@ -674,22 +652,30 @@ with tab3:
         col_q1, col_q2 = st.columns(2)
         
         with col_q1:
-            if st.button("What is this text about?", use_container_width=True):
+            if st.button("What is this text about?", use_container_width=True, key="sample1"):
                 st.session_state.sample_q = "What is this text about?"
+                st.rerun()
         
         with col_q2:
-            if st.button("Explain the Tamil translation", use_container_width=True):
+            if st.button("Explain the Tamil translation", use_container_width=True, key="sample2"):
                 st.session_state.sample_q = "Explain the Tamil translation"
+                st.rerun()
         
         col_q3, col_q4 = st.columns(2)
         
         with col_q3:
-            if st.button("மொழிபெயர்ப்பு என்ன?", use_container_width=True):
+            if st.button("மொழிபெயர்ப்பு என்ன?", use_container_width=True, key="sample3"):
                 st.session_state.sample_q = "மொழிபெயர்ப்பு என்ன?"
+                st.rerun()
         
         with col_q4:
-            if st.button("எனக்கு விளக்கு", use_container_width=True):
+            if st.button("எனக்கு விளக்கு", use_container_width=True, key="sample4"):
                 st.session_state.sample_q = "எனக்கு விளக்கு"
+                st.rerun()
+        
+        # Auto-fill sample question
+        if 'sample_q' in st.session_state:
+            st.text_input("Sample question loaded:", st.session_state.sample_q, key="sample_input")
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
@@ -707,13 +693,16 @@ with st.sidebar:
     # Quick actions
     st.markdown("## ⚡ Quick Actions")
     
-    if st.button("🔄 Clear All", use_container_width=True):
+    if st.button("🔄 Clear All", use_container_width=True, key="clear_all"):
         st.session_state.translation_history = []
         st.session_state.chat_history = []
         st.session_state.current_translation = None
+        st.session_state.voice_input_text = ""
+        st.session_state.demo_question = ""
+        st.session_state.sample_q = ""
         st.rerun()
     
-    if st.button("📥 Export Chat", use_container_width=True):
+    if st.button("📥 Export Chat", use_container_width=True, key="export_chat"):
         if st.session_state.chat_history:
             chat_text = "Talk2Tamil Chat History\n" + "="*50 + "\n"
             for chat in st.session_state.chat_history:
@@ -723,10 +712,11 @@ with st.sidebar:
                 chat_text += "-"*50 + "\n"
             
             st.download_button(
-                "Download Chat History",
+                "📥 Download Chat History",
                 chat_text,
                 "talk2tamil_chat_history.txt",
-                "text/plain"
+                "text/plain",
+                key="download_chat"
             )
     
     st.markdown("---")
@@ -773,6 +763,3 @@ st.markdown("""
     <p style='font-size: 0.9rem;'>Built with Streamlit • Python • Google Translate • gTTS</p>
 </div>
 """, unsafe_allow_html=True)
-
-# Add streamlit components for HTML
-import streamlit.components.v1 as components
