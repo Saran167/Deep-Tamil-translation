@@ -2,16 +2,12 @@ import streamlit as st
 from deep_translator import GoogleTranslator
 from gtts import gTTS
 import pandas as pd
-import io
 import base64
 from datetime import datetime
 import os
 import requests
 import urllib.parse
-import json
 import time
-import PyPDF2
-import docx
 
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
@@ -69,14 +65,6 @@ st.markdown("""
         font-weight: bold;
         transition: all 0.3s;
     }
-    .record-btn {
-        background: linear-gradient(90deg, #EF4444 0%, #DC2626 100%) !important;
-        color: white !important;
-    }
-    .stop-btn {
-        background: linear-gradient(90deg, #10B981 0%, #059669 100%) !important;
-        color: white !important;
-    }
     .chat-message-user {
         background-color: #E0F2FE;
         padding: 1rem;
@@ -91,9 +79,6 @@ st.markdown("""
         margin: 0.5rem 0;
         border-left: 4px solid #F59E0B;
     }
-    .tab-content {
-        padding: 1rem;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -104,34 +89,15 @@ if 'current_translation' not in st.session_state:
     st.session_state.current_translation = None
 if 'chat_history' not in st.session_state:
     st.session_state.chat_history = []
-if 'is_recording' not in st.session_state:
-    st.session_state.is_recording = False
-if 'recorded_audio' not in st.session_state:
-    st.session_state.recorded_audio = None
 if 'voice_input_text' not in st.session_state:
     st.session_state.voice_input_text = ""
+if 'is_recording' not in st.session_state:
+    st.session_state.is_recording = False
 
 # ==================== FUNCTIONS ====================
 
-# --- Voice Recording Simulation ---
-def start_recording():
-    """Simulate starting voice recording"""
-    st.session_state.is_recording = True
-    st.session_state.recorded_audio = None
-
-def stop_recording():
-    """Simulate stopping voice recording"""
-    st.session_state.is_recording = False
-    # Simulate processing - in real app, this would process actual audio
-    time.sleep(1)
-    st.session_state.recorded_audio = "simulated_audio.mp3"
-    # For demo, use a sample text
-    sample_text = "This is a simulated voice input. In real implementation, this would convert speech to text."
-    st.session_state.voice_input_text = sample_text
-    return sample_text
-
-# --- Translation Functions ---
 def translate_to_tamil(text):
+    """Translate text to Tamil"""
     try:
         translator = GoogleTranslator(source='auto', target='ta')
         return translator.translate(text)
@@ -139,7 +105,7 @@ def translate_to_tamil(text):
         return text
 
 def simplify_english(text):
-    """Comprehensive English simplifier"""
+    """Simplify English text"""
     simplification_dict = {
         'artificial intelligence': 'smart computer systems',
         'machine learning': 'computers that learn from data',
@@ -174,18 +140,13 @@ def simplify_english(text):
     simplified_text = text
     for complex_word, simple_word in simplification_dict.items():
         if complex_word in simplified_text.lower():
-            # Case insensitive replacement
             import re
             simplified_text = re.compile(re.escape(complex_word), re.IGNORECASE).sub(simple_word, simplified_text)
     
-    # Capitalize first letter
-    if simplified_text:
-        simplified_text = simplified_text[0].upper() + simplified_text[1:]
-    
     return simplified_text
 
-# --- Audio Generation ---
 def generate_audio(text, language='ta', filename="audio.mp3"):
+    """Generate audio from text"""
     try:
         tts = gTTS(text=text, lang=language, slow=False)
         tts.save(filename)
@@ -194,74 +155,39 @@ def generate_audio(text, language='ta', filename="audio.mp3"):
         st.error(f"Audio generation failed: {str(e)}")
         return None
 
-# --- Chatbot Functions ---
+# ==================== CHATBOT CLASS ====================
 class SimpleChatbot:
     def __init__(self):
         self.context = ""
-        self.qa_pairs = {
-            "what is this": "This is a translation of your text.",
-            "translate again": "I can translate it again for you.",
-            "explain": "Let me explain the translation...",
-            "tamil meaning": "This is the Tamil translation of your text.",
-            "speak tamil": "I will speak the Tamil translation.",
-            "simple english": "This is simplified English for easy understanding.",
-            "explain english": "The English version uses simpler words.",
-        }
     
     def set_context(self, original_text, tamil_translation, english_translation):
-        """Set the current document context for the chatbot"""
-        self.context = f"""
-        Original Text: {original_text}
-        Tamil Translation: {tamil_translation}
-        Simple English: {english_translation}
-        """
+        self.context = f"Original: {original_text}\nTamil: {tamil_translation}\nEnglish: {english_translation}"
     
     def answer_question(self, question, ask_in_tamil=False):
-        """Answer questions based on context"""
-        
-        question_lower = question.lower()
-        
-        # Check for keywords
-        if "what is" in question_lower or "explain" in question_lower:
+        if "meaning" in question.lower() or "explain" in question.lower():
             if ask_in_tamil:
-                return "இது உங்கள் உரையின் மொழிபெயர்ப்பு ஆகும். இன்னும் விளக்கத்திற்கு கேளுங்கள்."
+                return "இது உங்கள் உரையின் மொழிபெயர்ப்பு ஆகும்."
             else:
-                return "This is a translation of your text. Please ask more specific questions."
-        
-        elif "tamil" in question_lower:
+                return "This is a translation of your text."
+        elif "tamil" in question.lower():
             if ask_in_tamil:
-                return "இது தமிழ் மொழிபெயர்ப்பு. மேலும் விளக்கங்களுக்கு கேளுங்கள்."
+                return "இது தமிழ் மொழிபெயர்ப்பு."
             else:
-                return "This is the Tamil translation. Ask me to explain any part."
-        
-        elif "english" in question_lower or "simple" in question_lower:
+                return "This is the Tamil translation."
+        elif "english" in question.lower():
             if ask_in_tamil:
-                return "இது எளிய ஆங்கிலம். கடினமான சொற்களை எளிதாக்கியுள்ளோம்."
+                return "இது எளிய ஆங்கிலம்."
             else:
-                return "This is simplified English. Complex words have been made easier."
-        
-        elif "voice" in question_lower or "speak" in question_lower:
-            if ask_in_tamil:
-                return "குரல் வெளியீட்டை கேட்க பிளே பொத்தானை அழுத்தவும்."
-            else:
-                return "Press the play button to hear the voice output."
-        
-        elif "download" in question_lower or "pdf" in question_lower:
-            if ask_in_tamil:
-                return "PDF பதிவிறக்க பொத்தானை கிளிக் செய்யவும்."
-            else:
-                return "Click the download PDF button to save the document."
-        
+                return "This is simplified English."
         else:
             if ask_in_tamil:
-                return "மன்னிக்கவும், இந்த கேள்விக்கு பதில் தெரியவில்லை. வேறு கேள்வி கேளுங்கள்."
+                return "மன்னிக்கவும், இந்த கேள்விக்கு பதில் தெரியவில்லை."
             else:
-                return "I'm sorry, I don't know the answer to that question. Please ask something else."
+                return "I'm sorry, I don't know the answer."
 
-# Initialize chatbot
 chatbot = SimpleChatbot()
 
-# ==================== MAIN APP LAYOUT ====================
+# ==================== MAIN APP ====================
 
 # Header
 st.markdown("""
@@ -271,7 +197,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Create tabs for different modes
+# Create tabs
 tab1, tab2, tab3 = st.tabs(["🎤 Voice Input", "📝 Text/Image Input", "🤖 Chat Assistant"])
 
 # ==================== TAB 1: VOICE INPUT ====================
@@ -284,38 +210,26 @@ with tab1:
         st.markdown("""
         <div class='voice-box'>
             <h4>🎙️ Voice Input Instructions</h4>
-            <p>1. Click the record button below<br>
-            2. Speak in Tamil or English<br>
-            3. Click stop when finished<br>
-            4. Your speech will be converted to text</p>
+            <p>1. Type text in the box below<br>
+            2. Click translate to process<br>
+            3. Get voice output</p>
         </div>
         """, unsafe_allow_html=True)
         
-        # Voice recording buttons
-        col_rec1, col_rec2 = st.columns(2)
+        # Voice input simulation (text input)
+        voice_input = st.text_area(
+            "🎤 Type what you want to say:",
+            height=150,
+            placeholder="Type your message here as if you were speaking...",
+            value=st.session_state.voice_input_text,
+            key="voice_input_area"
+        )
         
-        with col_rec1:
-            if st.button("🔴 Start Recording", key="start_rec", use_container_width=True):
-                start_recording()
+        # Update session state
+        if voice_input:
+            st.session_state.voice_input_text = voice_input
         
-        with col_rec2:
-            if st.button("⏹️ Stop Recording", key="stop_rec", use_container_width=True):
-                voice_text = stop_recording()
-                st.success("✅ Voice recorded! Text extracted below.")
-        
-        # Show recording status
-        if st.session_state.is_recording:
-            st.markdown("""
-            <div style='text-align: center; padding: 2rem; background: #FEE2E2; border-radius: 10px;'>
-                <h3>🔴 RECORDING...</h3>
-                <p>Speak now in Tamil or English</p>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Display voice input text
-        st.text_area("🎤 Your Voice Input:", st.session_state.voice_input_text, height=150, key="voice_input_area")
-        
-        # Use this text for translation
+        # Translate button
         if st.button("✨ Translate Voice Input", type="primary", key="translate_voice"):
             if st.session_state.voice_input_text:
                 st.session_state.current_translation = {
@@ -331,24 +245,12 @@ with tab1:
         **For best results:**
         
         **தமிழ் (Tamil):**
-        - Speak clearly
-        - Normal speed
-        - No background noise
+        - Type clearly
+        - Use simple sentences
         
         **English:**
-        - Clear pronunciation
-        - Medium pace
-        - Complete sentences
-        """)
-        
-        # Alternative voice input method
-        st.markdown("---")
-        st.markdown("### 🌐 Alternative Method")
-        st.markdown("""
-        For real voice input:
-        1. Use your phone's voice typing
-        2. Copy the text
-        3. Paste in Tab 2
+        - Clear sentences
+        - Avoid jargon
         """)
 
 # ==================== TAB 2: TEXT/IMAGE INPUT ====================
@@ -358,45 +260,31 @@ with tab2:
     col_input, col_settings = st.columns([2, 1])
     
     with col_input:
+        # Input method
         input_method = st.radio(
             "✨ Choose input method:",
-            ["✍️ Type/Paste Text", "📁 Upload File (TXT/DOCX/PDF)"],
+            ["✍️ Type/Paste Text", "📁 Upload File (Coming Soon)"],
             key="input_method"
         )
         
+        # Initialize input_text variable
         input_text = ""
         
         if input_method == "✍️ Type/Paste Text":
             input_text = st.text_area(
                 "Enter text in any language:",
                 height=200,
-                placeholder="Type or paste your text here...\nYou can type in English, Tamil, Hindi, etc.",
+                placeholder="Type or paste your text here...\nExample: 'Your bank account needs verification.'",
                 key="text_input_main"
             )
-        
-        else:  # Upload File
-            uploaded_file = st.file_uploader(
-                "Choose a file",
-                type=['txt', 'docx', 'pdf'],
-                help="Supports: .txt, .docx, .pdf files",
-                key="file_uploader"
+        else:
+            st.info("📁 File upload feature coming soon!")
+            # For now, allow text input
+            input_text = st.text_area(
+                "Or type text here:",
+                height=150,
+                key="alt_text_input"
             )
-            if uploaded_file:
-                try:
-                    if uploaded_file.name.endswith('.txt'):
-                        input_text = uploaded_file.read().decode()
-                    elif uploaded_file.name.endswith('.docx'):
-                        doc = docx.Document(uploaded_file)
-                        input_text = "\n".join([para.text for para in doc.paragraphs])
-                    elif uploaded_file.name.endswith('.pdf'):
-                        pdf_reader = PyPDF2.PdfReader(uploaded_file)
-                        input_text = ""
-                        for page in pdf_reader.pages:
-                            input_text += page.extract_text()
-                    
-                    st.text_area("📄 Extracted Text:", input_text, height=150, key="extracted_text")
-                except Exception as e:
-                    st.error(f"Error reading file: {str(e)}")
     
     with col_settings:
         st.markdown("### ⚙️ Output Settings")
@@ -410,10 +298,10 @@ with tab2:
         st.markdown("---")
         
         voice_option = st.checkbox("🔊 Generate voice output", value=True, key="voice_option")
-        doc_option = st.checkbox("📄 Create downloadable file", value=True, key="doc_option")
         
         st.markdown("---")
         
+        # Process button
         process_btn = st.button(
             "✨ TRANSLATE NOW",
             type="primary",
@@ -422,116 +310,90 @@ with tab2:
         )
     
     # Process translation
-    if process_btn and input_text.strip():
-        with st.spinner("🔄 Processing translation..."):
-            tamil_translation = ""
-            english_translation = ""
-            
-            if output_option in ["🇮🇳 Tamil Only", "🌍 Both Languages"]:
-                tamil_translation = translate_to_tamil(input_text)
-            
-            if output_option in ["🇬🇧 Simple English Only", "🌍 Both Languages"]:
-                english_translation = simplify_english(input_text)
-            
-            # Store in session
-            st.session_state.current_translation = {
-                'original': input_text,
-                'tamil': tamil_translation,
-                'english': english_translation
-            }
-            
-            # Set chatbot context
-            chatbot.set_context(input_text, tamil_translation, english_translation)
-            
-            # Add to history
-            st.session_state.translation_history.append({
-                'time': datetime.now().strftime("%H:%M:%S"),
-                'input': input_text[:50] + "...",
-                'output': output_option
-            })
+    if process_btn:
+        # Check which input_text to use
+        if input_method == "✍️ Type/Paste Text":
+            text_to_translate = st.session_state.text_input_main
+        else:
+            text_to_translate = st.session_state.alt_text_input if 'alt_text_input' in st.session_state else ""
+        
+        if text_to_translate and text_to_translate.strip():
+            with st.spinner("🔄 Processing translation..."):
+                tamil_translation = ""
+                english_translation = ""
+                
+                if output_option in ["🇮🇳 Tamil Only", "🌍 Both Languages"]:
+                    tamil_translation = translate_to_tamil(text_to_translate)
+                
+                if output_option in ["🇬🇧 Simple English Only", "🌍 Both Languages"]:
+                    english_translation = simplify_english(text_to_translate)
+                
+                # Store in session
+                st.session_state.current_translation = {
+                    'original': text_to_translate,
+                    'tamil': tamil_translation,
+                    'english': english_translation
+                }
+                
+                # Set chatbot context
+                chatbot.set_context(text_to_translate, tamil_translation, english_translation)
+                
+                # Add to history
+                st.session_state.translation_history.append({
+                    'time': datetime.now().strftime("%H:%M:%S"),
+                    'input': text_to_translate[:50] + "..." if len(text_to_translate) > 50 else text_to_translate,
+                    'output': output_option
+                })
+        else:
+            st.warning("⚠️ Please enter some text to translate.")
+
+# Display translation results if available
+if st.session_state.current_translation:
+    st.markdown("---")
+    st.markdown("## 📊 Translation Results")
     
-    # Display translation results
-    if st.session_state.current_translation:
-        st.markdown("---")
-        st.markdown("## 📊 Translation Results")
+    # Show what changed if English was simplified
+    if output_option in ["🇬🇧 Simple English Only", "🌍 Both Languages"]:
+        original = st.session_state.current_translation['original']
+        english = st.session_state.current_translation['english']
+        if english != original:
+            st.markdown("### 🔄 Simplification Changes")
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.markdown("**Original:**")
+                st.info(original[:200] + "..." if len(original) > 200 else original)
+            with col_b:
+                st.markdown("**Simplified:**")
+                st.success(english[:200] + "..." if len(english) > 200 else english)
+    
+    if output_option == "🌍 Both Languages":
+        col_tamil, col_english = st.columns(2)
         
-        # Show what changed if English was simplified
-        if output_option in ["🇬🇧 Simple English Only", "🌍 Both Languages"]:
-            original = st.session_state.current_translation['original']
-            english = st.session_state.current_translation['english']
-            if english != original:
-                st.markdown("### 🔄 Simplification Changes")
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.markdown("**Original:**")
-                    st.info(original[:200] + "..." if len(original) > 200 else original)
-                with col_b:
-                    st.markdown("**Simplified:**")
-                    st.success(english[:200] + "..." if len(english) > 200 else english)
-        
-        if output_option == "🌍 Both Languages":
-            col_tamil, col_english = st.columns(2)
-            
-            with col_tamil:
-                st.markdown("""
-                <div class="language-box">
-                    <h3>🇮🇳 தமிழ் மொழிபெயர்ப்பு</h3>
-                </div>
-                """, unsafe_allow_html=True)
-                st.write(st.session_state.current_translation['tamil'])
-                
-                if voice_option and st.session_state.current_translation['tamil']:
-                    audio_file = generate_audio(
-                        st.session_state.current_translation['tamil'], 
-                        'ta',
-                        "tamil_output.mp3"
-                    )
-                    if audio_file:
-                        st.audio(audio_file, format='audio/mp3')
-                        st.success("✅ Tamil audio ready")
-            
-            with col_english:
-                st.markdown("""
-                <div class="language-box">
-                    <h3>🇬🇧 Simple English</h3>
-                </div>
-                """, unsafe_allow_html=True)
-                st.write(st.session_state.current_translation['english'])
-                
-                if voice_option:
-                    audio_file = generate_audio(
-                        st.session_state.current_translation['english'],
-                        'en',
-                        "english_output.mp3"
-                    )
-                    if audio_file:
-                        st.audio(audio_file, format='audio/mp3')
-                        st.success("✅ English audio ready")
-        
-        elif output_option == "🇮🇳 Tamil Only":
+        with col_tamil:
             st.markdown("""
             <div class="language-box">
-                <h3>🇮🇳 Tamil Translation</h3>
-                <p>{}</p>
+                <h3>🇮🇳 தமிழ் மொழிபெயர்ப்பு</h3>
             </div>
-            """.format(st.session_state.current_translation['tamil']), unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+            st.write(st.session_state.current_translation['tamil'])
             
             if voice_option and st.session_state.current_translation['tamil']:
                 audio_file = generate_audio(
-                    st.session_state.current_translation['tamil'],
+                    st.session_state.current_translation['tamil'], 
                     'ta',
                     "tamil_output.mp3"
                 )
                 if audio_file:
                     st.audio(audio_file, format='audio/mp3')
+                    st.success("✅ Tamil audio ready")
         
-        else:  # English Only
+        with col_english:
             st.markdown("""
             <div class="language-box">
-                <h3>🇬🇧 Simplified English</h3>
-                <p>{}</p>
+                <h3>🇬🇧 Simple English</h3>
             </div>
-            """.format(st.session_state.current_translation['english']), unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+            st.write(st.session_state.current_translation['english'])
             
             if voice_option:
                 audio_file = generate_audio(
@@ -541,6 +403,41 @@ with tab2:
                 )
                 if audio_file:
                     st.audio(audio_file, format='audio/mp3')
+                    st.success("✅ English audio ready")
+    
+    elif output_option == "🇮🇳 Tamil Only":
+        st.markdown("""
+        <div class="language-box">
+            <h3>🇮🇳 Tamil Translation</h3>
+            <p>{}</p>
+        </div>
+        """.format(st.session_state.current_translation['tamil']), unsafe_allow_html=True)
+        
+        if voice_option and st.session_state.current_translation['tamil']:
+            audio_file = generate_audio(
+                st.session_state.current_translation['tamil'],
+                'ta',
+                "tamil_output.mp3"
+            )
+            if audio_file:
+                st.audio(audio_file, format='audio/mp3')
+    
+    else:  # English Only
+        st.markdown("""
+        <div class="language-box">
+            <h3>🇬🇧 Simplified English</h3>
+            <p>{}</p>
+        </div>
+        """.format(st.session_state.current_translation['english']), unsafe_allow_html=True)
+        
+        if voice_option:
+            audio_file = generate_audio(
+                st.session_state.current_translation['english'],
+                'en',
+                "english_output.mp3"
+            )
+            if audio_file:
+                st.audio(audio_file, format='audio/mp3')
 
 # ==================== TAB 3: CHAT ASSISTANT ====================
 with tab3:
@@ -553,48 +450,15 @@ with tab3:
     else:
         st.success("✅ Chatbot is ready! Ask questions about your translated text.")
         
-        # Display current context
-        with st.expander("📄 View Current Text Context"):
-            col_orig, col_trans = st.columns(2)
-            with col_orig:
-                st.markdown("**Original:**")
-                st.info(st.session_state.current_translation['original'][:200] + "...")
-            with col_trans:
-                if st.session_state.current_translation['tamil']:
-                    st.markdown("**Tamil:**")
-                    st.success(st.session_state.current_translation['tamil'][:200] + "...")
-        
         # Chat interface
-        st.markdown("---")
         st.markdown("### 💬 Chat with Assistant")
         
-        # Chat input method
-        chat_input_method = st.radio(
-            "How to ask?",
-            ["✍️ Type Question", "🎤 Speak Question"],
-            horizontal=True,
-            key="chat_input_method"
+        # Question input
+        user_question = st.text_input(
+            "Type your question in Tamil or English:",
+            placeholder="E.g., 'What does this mean in Tamil?' or 'இதன் பொருள் என்ன?'",
+            key="question_input"
         )
-        
-        user_question = ""
-        
-        if chat_input_method == "✍️ Type Question":
-            user_question = st.text_input(
-                "Type your question in Tamil or English:",
-                placeholder="E.g., 'What does this mean in Tamil?' or 'இதன் பொருள் என்ன?'",
-                key="question_input"
-            )
-        else:
-            # Voice input for chat (simulated)
-            if st.button("🎤 Speak Question", use_container_width=True, key="speak_question"):
-                st.info("🎤 Speaking... (Simulated - would use speech recognition)")
-                # For demo, use a sample question
-                user_question = "What is the meaning of this text?"
-                st.session_state.demo_question = user_question
-            
-            if 'demo_question' in st.session_state:
-                user_question = st.session_state.demo_question
-                st.text_input("Your question:", user_question, key="demo_q_input")
         
         # Language for answer
         answer_language = st.radio(
@@ -620,7 +484,6 @@ with tab3:
             })
             
             # Display answer
-            st.markdown("---")
             st.markdown(f"**🤖 Assistant's Answer ({answer_language}):**")
             st.markdown(f"<div class='chat-message-bot'>{answer}</div>", unsafe_allow_html=True)
             
@@ -636,7 +499,6 @@ with tab3:
         
         # Display chat history
         if st.session_state.chat_history:
-            st.markdown("---")
             st.markdown("### 📖 Chat History")
             
             for chat in reversed(st.session_state.chat_history[-5:]):
@@ -644,38 +506,6 @@ with tab3:
                 st.markdown(f"<div class='chat-message-user'>🙂 **You:** {chat['question']}</div>", unsafe_allow_html=True)
                 st.markdown(f"<div class='chat-message-bot'>🤖 **Assistant:** {chat['answer']}</div>", unsafe_allow_html=True)
                 st.markdown("---")
-        
-        # Sample questions
-        st.markdown("---")
-        st.markdown("### 💡 Sample Questions")
-        
-        col_q1, col_q2 = st.columns(2)
-        
-        with col_q1:
-            if st.button("What is this text about?", use_container_width=True, key="sample1"):
-                st.session_state.sample_q = "What is this text about?"
-                st.rerun()
-        
-        with col_q2:
-            if st.button("Explain the Tamil translation", use_container_width=True, key="sample2"):
-                st.session_state.sample_q = "Explain the Tamil translation"
-                st.rerun()
-        
-        col_q3, col_q4 = st.columns(2)
-        
-        with col_q3:
-            if st.button("மொழிபெயர்ப்பு என்ன?", use_container_width=True, key="sample3"):
-                st.session_state.sample_q = "மொழிபெயர்ப்பு என்ன?"
-                st.rerun()
-        
-        with col_q4:
-            if st.button("எனக்கு விளக்கு", use_container_width=True, key="sample4"):
-                st.session_state.sample_q = "எனக்கு விளக்கு"
-                st.rerun()
-        
-        # Auto-fill sample question
-        if 'sample_q' in st.session_state:
-            st.text_input("Sample question loaded:", st.session_state.sample_q, key="sample_input")
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
@@ -691,68 +521,12 @@ with st.sidebar:
     st.markdown("---")
     
     # Quick actions
-    st.markdown("## ⚡ Quick Actions")
-    
     if st.button("🔄 Clear All", use_container_width=True, key="clear_all"):
         st.session_state.translation_history = []
         st.session_state.chat_history = []
         st.session_state.current_translation = None
         st.session_state.voice_input_text = ""
-        st.session_state.demo_question = ""
-        st.session_state.sample_q = ""
         st.rerun()
-    
-    if st.button("📥 Export Chat", use_container_width=True, key="export_chat"):
-        if st.session_state.chat_history:
-            chat_text = "Talk2Tamil Chat History\n" + "="*50 + "\n"
-            for chat in st.session_state.chat_history:
-                chat_text += f"\n[{chat['time']}] {chat['language']}\n"
-                chat_text += f"Q: {chat['question']}\n"
-                chat_text += f"A: {chat['answer']}\n"
-                chat_text += "-"*50 + "\n"
-            
-            st.download_button(
-                "📥 Download Chat History",
-                chat_text,
-                "talk2tamil_chat_history.txt",
-                "text/plain",
-                key="download_chat"
-            )
-    
-    st.markdown("---")
-    
-    # Recent activity
-    st.markdown("## 📅 Recent Activity")
-    
-    if st.session_state.translation_history:
-        for item in reversed(st.session_state.translation_history[-3:]):
-            st.markdown(f"⏰ **{item['time']}**")
-            st.caption(f"📝 {item['input']}")
-            st.caption(f"🎯 {item['output']}")
-            st.markdown("---")
-    else:
-        st.info("No recent activity")
-    
-    st.markdown("---")
-    
-    # Help section
-    st.markdown("## ❓ Help & Tips")
-    st.markdown("""
-    **Voice Input:**
-    - Use Tab 1 for voice
-    - Speak clearly
-    - One sentence at a time
-    
-    **Chatbot:**
-    - Ask about translations
-    - Get explanations
-    - Voice answers available
-    
-    **Translation:**
-    - Any language supported
-    - Download as PDF
-    - Voice output
-    """)
 
 # ==================== FOOTER ====================
 st.markdown("---")
@@ -760,6 +534,5 @@ st.markdown("""
 <div style='text-align: center; padding: 2rem; color: #666;'>
     <h4>🗣️🤖 Talk2Tamil: Complete Translation & Chat Assistant</h4>
     <p>🎤 Voice Input | 🌍 Multi-language | 🤖 AI Chat | 🔊 Voice Output | 📄 Documents</p>
-    <p style='font-size: 0.9rem;'>Built with Streamlit • Python • Google Translate • gTTS</p>
 </div>
 """, unsafe_allow_html=True)
