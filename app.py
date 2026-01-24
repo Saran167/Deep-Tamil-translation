@@ -7,7 +7,6 @@ import base64
 from datetime import datetime
 from PIL import Image
 import io
-import pytesseract
 import os
 
 # ==================== PAGE CONFIG ====================
@@ -315,22 +314,24 @@ def generate_audio(text, language='ta'):
 def extract_text_from_image(image_file):
     """Extract text from uploaded image"""
     try:
-        # Open image
-        image = Image.open(image_file)
-        
-        # Try OCR
+        # Try OCR if available
         try:
             import pytesseract
-            text = pytesseract.image_to_string(image, lang='eng+hin+tam')
-        except:
-            # Fallback: ask user to type
-            st.warning("🔍 OCR not available. Please type the text manually.")
-            text = st.text_area("📝 Type the text from image:", height=150)
-        
-        return text if text else "Could not extract text from image."
+            image = Image.open(image_file)
+            text = pytesseract.image_to_string(image, lang='eng')
+            if text.strip():
+                return text
+            else:
+                st.info("📝 No text detected in image. Please type manually below.")
+                manual_text = st.text_area("Type the text from image:", height=150, key="manual_ocr")
+                return manual_text if manual_text else "No text extracted."
+        except ImportError:
+            # OCR not installed
+            st.info("🔍 OCR feature requires setup. Please type the text manually:")
+            manual_text = st.text_area("📝 Type the text from image:", height=150, key="manual_ocr_fallback")
+            return manual_text if manual_text else "Please type the text from the image."
     except Exception as e:
-        st.error(f"Image processing error: {str(e)}")
-        return "Error processing image."
+        return f"Error processing image: {str(e)}"
 
 def get_daily_tips(topic, language='ta'):
     """Get daily use tips based on input topic"""
@@ -449,13 +450,13 @@ def get_daily_tips(topic, language='ta'):
     # Detect topic from input
     detected_topic = 'ai'  # default
     
-    if any(word in topic_lower for word in ['bank', 'account', 'money', 'loan', 'otp']):
+    if any(word in topic_lower for word in ['bank', 'account', 'money', 'loan', 'otp', 'upi']):
         detected_topic = 'bank'
-    elif any(word in topic_lower for word in ['health', 'doctor', 'medicine', 'hospital']):
+    elif any(word in topic_lower for word in ['health', 'doctor', 'medicine', 'hospital', 'exercise', 'water']):
         detected_topic = 'health'
-    elif any(word in topic_lower for word in ['study', 'education', 'school', 'college']):
+    elif any(word in topic_lower for word in ['study', 'education', 'school', 'college', 'learn', 'read']):
         detected_topic = 'education'
-    elif any(word in topic_lower for word in ['ai', 'artificial', 'intelligence', 'machine']):
+    elif any(word in topic_lower for word in ['ai', 'artificial', 'intelligence', 'machine', 'robot']):
         detected_topic = 'ai'
     
     # Get tips for detected topic and language
@@ -834,4 +835,48 @@ with st.sidebar:
     examples = {
         "🤖 AI in Daily Life": "Artificial Intelligence helps in daily tasks like voice assistants and photo editing.",
         "🏦 Bank Safety": "Your bank account needs verification. Share your details securely.",
-        "🏥 Health Tips": "Regular exercise
+        "🏥 Health Tips": "Regular exercise and balanced diet are essential for good health.",
+        "📚 Study Tips": "Consistent study habits lead to better learning outcomes.",
+    }
+    
+    for title, text in examples.items():
+        if st.button(f"{title}", use_container_width=True):
+            # Set the text in the main input
+            st.session_state.current_input = text
+            if 'text_input' in st.session_state:
+                st.session_state.text_input = text
+            st.rerun()
+    
+    st.markdown("---")
+    
+    st.markdown("## 💡 Tips")
+    st.markdown("""
+    **For best results:**
+    - Speak clearly for voice input
+    - Use complete sentences
+    - Upload clear images for text extraction
+    
+    **Daily Tips:**
+    - Based on your input topic
+    - Useful for everyday life
+    - Available in Tamil/English
+    """)
+    
+    st.markdown("---")
+    
+    st.markdown("## 📊 Statistics")
+    if st.session_state.translation_result:
+        st.metric("✨ Translations Done", "1")
+        st.metric("💡 Tips Generated", len(st.session_state.translation_result['daily_tips']))
+    else:
+        st.info("No translations yet")
+
+# ==================== FOOTER ====================
+st.markdown("---")
+st.markdown("""
+<div style='text-align: center; padding: 2rem; color: #666;'>
+    <p>🚀 <strong>Talk2Tamil: Smart Assistant</strong></p>
+    <p>🎤 Voice Input | 📸 Image Upload | 📝 Text Input | 🇮🇳 Tamil Output | 🇬🇧 Simple English | 💡 Daily Tips | 🔊 Voice Output</p>
+    <p style='font-size: 0.9rem;'>Built with Streamlit • Google Translate • gTTS</p>
+</div>
+""", unsafe_allow_html=True)
