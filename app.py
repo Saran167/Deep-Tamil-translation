@@ -8,6 +8,7 @@ from datetime import datetime
 from PIL import Image
 import io
 import os
+from io import BytesIO
 
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
@@ -119,23 +120,6 @@ st.markdown("""
         border-radius: 10px;
         text-align: center;
         font-weight: bold;
-    }
-    
-    /* Chat messages */
-    .user-message {
-        background: #E3F2FD;
-        padding: 15px;
-        border-radius: 15px 15px 15px 5px;
-        margin: 10px 0;
-        border-left: 5px solid #2196F3;
-    }
-    
-    .assistant-message {
-        background: #F1F8E9;
-        padding: 15px;
-        border-radius: 15px 15px 5px 15px;
-        margin: 10px 0;
-        border-right: 5px solid #4CAF50;
     }
     
     /* Daily tip animation */
@@ -314,22 +298,10 @@ def generate_audio(text, language='ta'):
 def extract_text_from_image(image_file):
     """Extract text from uploaded image"""
     try:
-        # Try OCR if available
-        try:
-            import pytesseract
-            image = Image.open(image_file)
-            text = pytesseract.image_to_string(image, lang='eng')
-            if text.strip():
-                return text
-            else:
-                st.info("📝 No text detected in image. Please type manually below.")
-                manual_text = st.text_area("Type the text from image:", height=150, key="manual_ocr")
-                return manual_text if manual_text else "No text extracted."
-        except ImportError:
-            # OCR not installed
-            st.info("🔍 OCR feature requires setup. Please type the text manually:")
-            manual_text = st.text_area("📝 Type the text from image:", height=150, key="manual_ocr_fallback")
-            return manual_text if manual_text else "Please type the text from the image."
+        # Ask user to type text from image
+        st.info("📝 Please type the text from the image below:")
+        manual_text = st.text_area("Type the text here:", height=150, key="manual_ocr")
+        return manual_text if manual_text else "No text extracted."
     except Exception as e:
         return f"Error processing image: {str(e)}"
 
@@ -348,11 +320,6 @@ def get_daily_tips(topic, language='ta'):
                 "📸 AI கேமராக்கள் சிறப்பான புகைப்படங்களை எடுக்க உதவும்",
                 "📚 AI பயன்பாடுகளைக் கற்றுக்கொள்ள YouTube பாடங்களைப் பார்க்கவும்",
                 "🛡️ AI மூலம் மோசடி செய்திகளை அடையாளம் காணலாம்",
-                "🎵 Spotify, YouTube போன்றவை AI பயன்படுத்தி உங்களுக்கான இசையைப் பரிந்துரைக்கும்",
-                "💊 AI மருத்துவரை சந்திக்காமலே நோய்களை அடையாளம் காண உதவும்",
-                "🏦 வங்கி பயன்பாடுகள் AI மூலம் பாதுகாப்பானவை",
-                "📞 AI சாட்பாட்கள் 24/7 உங்கள் கேள்விகளுக்கு பதிலளிக்கும்",
-                "🚗 Uber, Ola போன்றவை AI பயன்படுத்தி உங்கள் பயணத்தைத் திட்டமிடும்"
             ],
             'en': [
                 "🤖 AI can make your life easier!",
@@ -360,11 +327,6 @@ def get_daily_tips(topic, language='ta'):
                 "📸 AI cameras help take better photos automatically",
                 "📚 Learn about AI apps through YouTube tutorials",
                 "🛡️ AI can help detect scam messages and calls",
-                "🎵 Spotify, YouTube use AI to recommend music you'll like",
-                "💊 AI apps can identify health issues without doctor visit",
-                "🏦 Banking apps are safer with AI fraud detection",
-                "📞 AI chatbots answer your questions 24/7",
-                "🚗 Uber, Ola use AI to plan your travel efficiently"
             ]
         },
         'bank': {
@@ -373,24 +335,14 @@ def get_daily_tips(topic, language='ta'):
                 "💳 ATM கார்டு PIN எப்போதும் ரகசியமாக வைக்கவும்",
                 "📱 UPI பயன்பாடுகளை பாதுகாப்பாக பயன்படுத்தவும்",
                 "📞 வங்கி மோசடி பற்றிய புகார்களை 1930 க்கு அறிவிக்கவும்",
-                "📧 வங்கி மின்னஞ்சல்களை சரிபார்க்க முதலில் வங்கியை தொடர்பு கொள்ளவும்",
                 "💰 சந்தேகத்திற்கிடமான கடன் செய்திகளை நம்பாதீர்கள்",
-                "🔒 உங்கள் வங்கி கடவுச்சொல்லை வாரம் ஒருமுறை மாற்றவும்",
-                "📊 வங்கி பில்களை சரிபார்க்க குறைந்தபட்சம் மாதம் ஒருமுறை",
-                "📱 மொபைல் பேங்கிங்கிற்கு இரண்டு காரணி அங்கீகாரத்தைப் பயன்படுத்தவும்",
-                "🚨 உங்கள் வங்கி கணக்கில் சந்தேகத்திற்கிடமான பரிவர்த்தனைகளை உடனடியாக அறிவிக்கவும்"
             ],
             'en': [
                 "🏦 Never share your OTP with anyone",
                 "💳 Keep ATM card PIN secret always",
                 "📱 Use UPI apps safely with password protection",
                 "📞 Report bank frauds immediately to 1930",
-                "📧 Always call bank to verify suspicious emails",
                 "💰 Don't trust suspicious loan messages",
-                "🔒 Change your bank password weekly",
-                "📊 Check bank statements at least monthly",
-                "📱 Use two-factor authentication for mobile banking",
-                "🚨 Report suspicious transactions immediately"
             ]
         },
         'health': {
@@ -400,11 +352,6 @@ def get_daily_tips(topic, language='ta'):
                 "🚶‍♂️ தினமும் குறைந்தது 30 நிமிடம் நடக்கவும்",
                 "💧 தினமும் 8 கிளாஸ் தண்ணீர் குடிக்கவும்",
                 "😴 இரவு 7-8 மணி நேரம் உறங்கவும்",
-                "🧘‍♂️ தினசரி மன அழுத்தம் குறைக்க யோகா செய்யவும்",
-                "🚭 புகைப்பழக்கம், மது ஆகியவற்றை தவிர்க்கவும்",
-                "🏥 ஆண்டிற்கு ஒருமுறை முழு உடல் பரிசோதனை செய்யவும்",
-                "🧼 கைகளை அடிக்கடி கழுவவும்",
-                "🌞 வைட்டமின் D க்கு காலை சூரிய ஒளியில் நடக்கவும்"
             ],
             'en': [
                 "💊 Don't take medicines without doctor consultation",
@@ -412,11 +359,6 @@ def get_daily_tips(topic, language='ta'):
                 "🚶‍♂️ Walk at least 30 minutes every day",
                 "💧 Drink 8 glasses of water daily",
                 "😴 Sleep 7-8 hours every night",
-                "🧘‍♂️ Practice yoga daily to reduce stress",
-                "🚭 Avoid smoking and alcohol",
-                "🏥 Get full body checkup yearly",
-                "🧼 Wash hands frequently",
-                "🌞 Walk in morning sunlight for Vitamin D"
             ]
         },
         'education': {
@@ -426,11 +368,6 @@ def get_daily_tips(topic, language='ta'):
                 "🎯 இலக்குகளை அமைத்து அவற்றை அடைய திட்டமிடவும்",
                 "🤝 குழுவாக படிப்பது மேம்பட்ட கற்றலை அளிக்கும்",
                 "📱 கல்வி பயன்பாடுகளைப் பயன்படுத்தி புதிய திறன்களைக் கற்றுக்கொள்ளுங்கள்",
-                "🎓 இலவச ஆன்லைன் பாடங்களைப் பயன்படுத்தவும்",
-                "🧠 குறிப்புகளை எடுத்து மீண்டும் மீண்டும் படிக்கவும்",
-                "⏰ ஒழுங்கான நேர அட்டவணையை பின்பற்றவும்",
-                "❓ சந்தேகங்களை உடனடியாக தீர்க்கவும்",
-                "🏆 சிறிய சாதனைகளை கொண்டாடுங்கள்"
             ],
             'en': [
                 "📚 Study at least 2 hours daily",
@@ -438,11 +375,6 @@ def get_daily_tips(topic, language='ta'):
                 "🎯 Set goals and plan to achieve them",
                 "🤝 Group study provides better learning",
                 "📱 Use educational apps to learn new skills",
-                "🎓 Utilize free online courses",
-                "🧠 Take notes and revise regularly",
-                "⏰ Follow a disciplined time schedule",
-                "❓ Clear doubts immediately",
-                "🏆 Celebrate small achievements"
             ]
         }
     }
@@ -471,6 +403,52 @@ def get_daily_tips(topic, language='ta'):
     
     return tips, detected_topic
 
+def create_document(content_dict, language='ta'):
+    """Create downloadable document"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    # Create document content
+    doc_content = f"""
+    ============================================
+    TALK2TAMIL - TRANSLATION RESULT
+    Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    ============================================
+
+    📝 ORIGINAL TEXT:
+    {content_dict.get('original', '')}
+
+    """
+    
+    if language in ['ta', 'both'] and content_dict.get('tamil'):
+        doc_content += f"""
+    🇮🇳 TAMIL TRANSLATION:
+    {content_dict.get('tamil', '')}
+
+    """
+    
+    if language in ['en', 'both'] and content_dict.get('english'):
+        doc_content += f"""
+    🇬🇧 SIMPLE ENGLISH:
+    {content_dict.get('english', '')}
+
+    """
+    
+    if content_dict.get('daily_tips'):
+        doc_content += f"""
+    💡 DAILY USEFUL TIPS:
+    {chr(10).join(content_dict.get('daily_tips', []))}
+
+    """
+    
+    doc_content += f"""
+    ============================================
+    Talk2Tamil - Smart Translation Assistant
+    Making information accessible for everyone!
+    ============================================
+    """
+    
+    return doc_content
+
 # ==================== INITIALIZE SESSION STATE ====================
 if 'translation_result' not in st.session_state:
     st.session_state.translation_result = None
@@ -480,6 +458,8 @@ if 'selected_output' not in st.session_state:
     st.session_state.selected_output = "🇮🇳 Tamil Only"
 if 'daily_tips' not in st.session_state:
     st.session_state.daily_tips = []
+if 'voice_input' not in st.session_state:
+    st.session_state.voice_input = ""
 
 # ==================== HEADER ====================
 st.markdown("""
@@ -493,6 +473,7 @@ st.markdown("""
         <span>🇬🇧 Simple English</span>
         <span>💡 Daily Tips</span>
         <span>🔊 Voice Output</span>
+        <span>📄 Document</span>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -504,7 +485,7 @@ with col1:
     st.markdown("""
     <div class="feature-card" style="border-left-color: #FF6B6B;">
         <h4>🎤 Voice Input</h4>
-        <p>Speak in Tamil/English</p>
+        <p>Type what you want to say</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -512,7 +493,7 @@ with col2:
     st.markdown("""
     <div class="feature-card" style="border-left-color: #4ECDC4;">
         <h4>📸 Image Upload</h4>
-        <p>Extract text from photos</p>
+        <p>Type text from images</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -527,8 +508,8 @@ with col3:
 with col4:
     st.markdown("""
     <div class="feature-card" style="border-left-color: #06D6A0;">
-        <h4>🔊 Voice Output</h4>
-        <p>Listen in Tamil/English</p>
+        <h4>📄 Document</h4>
+        <p>Download results</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -555,55 +536,35 @@ with input_tab1:
     st.session_state.current_input = text_input
 
 with input_tab2:
-    st.markdown("### 🎤 Voice Input (Speak)")
+    st.markdown("### 🎤 Voice Input")
     
-    col_v1, col_v2 = st.columns([2, 1])
+    # Simple voice input simulation
+    st.markdown("""
+    <div style="background: #FFF3E0; padding: 20px; border-radius: 15px; margin: 10px 0;">
+        <h4>🎙️ How to Use Voice Input:</h4>
+        <p>Type what you want to say in the box below as if you were speaking.</p>
+        <p>In a real app, this would use microphone to capture your voice.</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    with col_v1:
-        st.markdown("""
-        <div style="background: #FFF3E0; padding: 20px; border-radius: 15px; margin: 10px 0;">
-            <h4>🎙️ How to Use Voice Input:</h4>
-            <p>1. Click "Start Recording" below<br>
-            2. Speak clearly in Tamil or English<br>
-            3. Click "Stop Recording" when done<br>
-            4. Your speech will appear as text</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Voice recording simulation
-        col_start, col_stop = st.columns(2)
-        with col_start:
-            if st.button("🔴 Start Recording", use_container_width=True, key="start_rec"):
-                st.session_state.recording = True
-                st.success("🎤 Recording started... Speak now!")
-        
-        with col_stop:
-            if st.button("⏹️ Stop Recording", use_container_width=True, key="stop_rec"):
-                if 'recording' in st.session_state:
-                    del st.session_state.recording
-                    st.success("✅ Recording stopped!")
-        
-        # Voice input text area
-        voice_text = st.text_area(
-            "🎤 Your voice input will appear here:",
-            height=150,
-            placeholder="Speak and your words will appear here...\nFor demo, you can also type here.",
-            key="voice_input"
-        )
-        
-        if voice_text:
-            st.session_state.current_input = voice_text
+    # Text input for voice
+    voice_text = st.text_area(
+        "Type what you want to say:",
+        height=150,
+        placeholder="Type your message here as if you were speaking...\nExample: 'Hello, I need help with my bank account'",
+        key="voice_input_area"
+    )
     
-    with col_v2:
-        st.markdown("### 🎯 Tips for Voice")
-        st.markdown("""
-        **For clear voice input:**
+    if voice_text:
+        st.session_state.voice_input = voice_text
+        st.session_state.current_input = voice_text
         
-        🔊 **Speak clearly**
-        🎯 **One sentence at a time**
-        📍 **No background noise**
-        ⏸️ **Pause between sentences**
-        """)
+    # Record button simulation
+    if st.button("🎤 Simulate Voice Recording", key="simulate_voice"):
+        sample_text = "This is a sample voice input. In real implementation, this would capture your actual voice."
+        st.session_state.voice_input = sample_text
+        st.session_state.current_input = sample_text
+        st.success("✅ Voice recorded! (Simulated)")
 
 with input_tab3:
     st.markdown("### 📸 Upload Image with Text")
@@ -619,17 +580,11 @@ with input_tab3:
         image = Image.open(uploaded_file)
         st.image(image, caption="📸 Uploaded Image", width=300)
         
-        # Extract text button
-        if st.button("🔍 Extract Text from Image", key="extract_text"):
-            with st.spinner("🔍 Extracting text from image..."):
-                extracted_text = extract_text_from_image(uploaded_file)
-                st.session_state.current_input = extracted_text
-                st.success("✅ Text extracted successfully!")
-                
-                # Show extracted text
-                st.text_area("📝 Extracted Text:", extracted_text, height=150, key="extracted_text")
-    else:
-        st.info("📁 Upload an image file to extract text")
+        # Extract text
+        extracted_text = extract_text_from_image(uploaded_file)
+        if extracted_text and extracted_text != "No text extracted.":
+            st.session_state.current_input = extracted_text
+            st.success("✅ Text extracted! Click 'Translate' below.")
 
 # ==================== OUTPUT SETTINGS ====================
 st.markdown("---")
@@ -653,6 +608,13 @@ with col_set1:
         value=True,
         help="Get audio version of the translation"
     )
+    
+    # Document download option
+    doc_output = st.checkbox(
+        "📄 Generate downloadable document",
+        value=True,
+        help="Download results as text file"
+    )
 
 with col_set2:
     st.markdown("### 💡 Daily Tips Language")
@@ -666,12 +628,14 @@ with col_set2:
 
 # ==================== TRANSLATE BUTTON ====================
 st.markdown("---")
-if st.button(
+translate_clicked = st.button(
     "✨ TRANSLATE & GET DAILY TIPS",
     type="primary",
     use_container_width=True,
     key="translate_btn"
-):
+)
+
+if translate_clicked:
     if st.session_state.current_input and st.session_state.current_input.strip():
         with st.spinner("🔄 Processing your request..."):
             # Get translation
@@ -695,7 +659,8 @@ if st.button(
                 'english': english_text,
                 'daily_tips': daily_tips,
                 'detected_topic': detected_topic,
-                'tips_language': tips_language
+                'tips_language': tips_language,
+                'output_option': output_option
             }
     else:
         st.warning("⚠️ Please enter some text first!")
@@ -721,7 +686,7 @@ if st.session_state.translation_result:
     st.info(f"{topic_emoji} **Detected Topic:** {result['detected_topic'].upper()} - Daily tips will be about this topic")
     
     # Display translations
-    if output_option == "🌍 Both Languages":
+    if result['output_option'] == "🌍 Both Languages":
         col_tamil, col_english = st.columns(2)
         
         with col_tamil:
@@ -761,7 +726,7 @@ if st.session_state.translation_result:
                             st.audio(audio_file, format='audio/mp3')
                             st.success("✅ English audio playing")
     
-    elif output_option == "🇮🇳 Tamil Only":
+    elif result['output_option'] == "🇮🇳 Tamil Only":
         st.markdown("### 🇮🇳 Tamil Translation")
         if result['tamil']:
             st.success(result['tamil'])
@@ -796,7 +761,7 @@ if st.session_state.translation_result:
     
     # Display daily tips
     if result['daily_tips']:
-        for i, tip in enumerate(result['daily_tips'][:5]):  # Show first 5 tips
+        for i, tip in enumerate(result['daily_tips'][:5]):
             st.markdown(f"""
             <div style="background: {'#FFF9C4' if i % 2 == 0 else '#E1F5FE'}; 
                         padding: 15px; 
@@ -810,23 +775,37 @@ if st.session_state.translation_result:
         
         # Voice option for tips
         if voice_output:
-            col_t1, col_t2 = st.columns(2)
-            with col_t1:
-                if st.button("🔊 Listen to All Tips", key="play_all_tips"):
-                    all_tips = ". ".join(result['daily_tips'][:3])
-                    audio_file = generate_audio(all_tips, 'ta' if result['tips_language'] == "🇮🇳 Tamil" else 'en')
-                    if audio_file:
-                        st.audio(audio_file, format='audio/mp3')
-            
-            with col_t2:
-                if st.download_button(
-                    "📥 Save Tips as Text",
-                    "\n".join(result['daily_tips']),
-                    file_name=f"daily_tips_{datetime.now().strftime('%Y%m%d')}.txt",
-                    mime="text/plain",
-                    key="download_tips"
-                ):
-                    st.success("✅ Tips saved!")
+            if st.button("🔊 Listen to All Tips", key="play_all_tips"):
+                all_tips = ". ".join(result['daily_tips'][:3])
+                audio_file = generate_audio(all_tips, 'ta' if result['tips_language'] == "🇮🇳 Tamil" else 'en')
+                if audio_file:
+                    st.audio(audio_file, format='audio/mp3')
+    
+    # ==================== DOCUMENT DOWNLOAD SECTION ====================
+    if doc_output:
+        st.markdown("---")
+        st.markdown("### 📄 Document Download")
+        
+        # Determine document language
+        doc_lang = 'both'
+        if result['output_option'] == "🇮🇳 Tamil Only":
+            doc_lang = 'ta'
+        elif result['output_option'] == "🇬🇧 Simple English Only":
+            doc_lang = 'en'
+        
+        # Create document
+        doc_content = create_document(result, doc_lang)
+        
+        # Download button
+        st.download_button(
+            label="📥 Download as Text File",
+            data=doc_content,
+            file_name=f"talk2tamil_result_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+            mime="text/plain",
+            key="download_document"
+        )
+        
+        st.info("📋 Document includes: Original text, translation(s), and daily tips.")
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
@@ -839,44 +818,47 @@ with st.sidebar:
         "📚 Study Tips": "Consistent study habits lead to better learning outcomes.",
     }
     
-    for title, text in examples.items():
-        if st.button(f"{title}", use_container_width=True):
-            # Set the text in the main input
-            st.session_state.current_input = text
-            if 'text_input' in st.session_state:
-                st.session_state.text_input = text
-            st.rerun()
+    selected_example = st.selectbox(
+        "Choose an example:",
+        list(examples.keys()),
+        index=0,
+        key="example_selector"
+    )
+    
+    if st.button("📝 Use This Example", key="use_example"):
+        st.session_state.current_input = examples[selected_example]
+        st.rerun()
     
     st.markdown("---")
     
     st.markdown("## 💡 Tips")
     st.markdown("""
     **For best results:**
-    - Speak clearly for voice input
-    - Use complete sentences
-    - Upload clear images for text extraction
+    - Type complete sentences
+    - Use clear language
+    - Check both Tamil and English outputs
     
-    **Daily Tips:**
-    - Based on your input topic
-    - Useful for everyday life
-    - Available in Tamil/English
+    **Document Features:**
+    - Download all results as text file
+    - Includes translations and tips
+    - Ready to print or share
     """)
     
     st.markdown("---")
     
-    st.markdown("## 📊 Statistics")
-    if st.session_state.translation_result:
-        st.metric("✨ Translations Done", "1")
-        st.metric("💡 Tips Generated", len(st.session_state.translation_result['daily_tips']))
-    else:
-        st.info("No translations yet")
+    # Clear button
+    if st.button("🗑️ Clear All", key="clear_all"):
+        st.session_state.translation_result = None
+        st.session_state.current_input = ""
+        st.session_state.voice_input = ""
+        st.rerun()
 
 # ==================== FOOTER ====================
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; padding: 2rem; color: #666;'>
     <p>🚀 <strong>Talk2Tamil: Smart Assistant</strong></p>
-    <p>🎤 Voice Input | 📸 Image Upload | 📝 Text Input | 🇮🇳 Tamil Output | 🇬🇧 Simple English | 💡 Daily Tips | 🔊 Voice Output</p>
+    <p>🎤 Voice Input | 📸 Image Upload | 📝 Text Input | 🇮🇳 Tamil | 🇬🇧 Simple English | 💡 Daily Tips | 🔊 Voice Output | 📄 Document</p>
     <p style='font-size: 0.9rem;'>Built with Streamlit • Google Translate • gTTS</p>
 </div>
 """, unsafe_allow_html=True)
