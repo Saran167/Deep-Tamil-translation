@@ -2,125 +2,157 @@ import streamlit as st
 from deep_translator import GoogleTranslator
 from gtts import gTTS
 import speech_recognition as sr
-import tempfile
-import os
+from PIL import Image
+import tempfile, os
 from datetime import datetime
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="Talk2Tamil – Voice Translator",
-    page_icon="🎤",
+    page_title="Talk2Tamil",
+    page_icon="🗣️",
     layout="wide"
 )
 
 # ---------------- HEADER ----------------
 st.markdown("""
-<h1 style='text-align:center;'>🗣️ Talk2Tamil – Smart Voice Translator</h1>
-<p style='text-align:center;'>
-Any Language ➜ <b>Perfect Tamil</b> | Voice + Text | Download
+<h1 style="text-align:center;">🗣️ Talk2Tamil – Human Friendly Translator</h1>
+<p style="text-align:center;">
+📝 Text | 🎤 Voice | 🖼️ Image → 🇮🇳 Tamil / 🇬🇧 Simple English
 </p>
 <hr>
 """, unsafe_allow_html=True)
 
 # ---------------- FUNCTIONS ----------------
-def translate_to_tamil(text):
-    return GoogleTranslator(source="auto", target="ta").translate(text)
+def simplify_english(text):
+    replacements = {
+        "utilize": "use",
+        "approximately": "about",
+        "commence": "start",
+        "terminate": "end",
+        "assistance": "help",
+        "individuals": "people",
+        "numerous": "many",
+        "purchase": "buy",
+        "demonstrate": "show"
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
+    return text
 
-def text_to_speech(text, lang="ta"):
-    tts = gTTS(text=text, lang=lang, slow=False)
+def better_tamil(text):
+    replacements = {
+        "பயன்படுத்து": "உபயோகி",
+        "தொடங்குக": "ஆரம்பி",
+        "நிறைவேற்ற": "முடி",
+        "பரிசீலனை": "ஆலோசனை",
+        "அடையாளம் காண": "கண்டுபிடி",
+        "முன்னெச்சரிக்கை": "ஜாக்கிரதை",
+        "செயல்படுத்த": "செய்"
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
+    return text
+
+def translate(text, output_lang):
+    if output_lang == "🇮🇳 Tamil":
+        ta = GoogleTranslator(source="auto", target="ta").translate(text)
+        return better_tamil(ta)
+    else:
+        if text.isascii():
+            return simplify_english(text)
+        else:
+            en = GoogleTranslator(source="auto", target="en").translate(text)
+            return simplify_english(en)
+
+def text_to_speech(text, lang):
+    tts = gTTS(text=text, lang="ta" if lang=="🇮🇳 Tamil" else "en")
     filename = "output.mp3"
     tts.save(filename)
     return filename
 
-def create_document(original, tamil):
-    content = f"""
-Talk2Tamil – Translation Result
-Generated on: {datetime.now()}
+def create_doc(original, translated):
+    return f"""
+Talk2Tamil – Translation Output
+Generated: {datetime.now()}
 
-----------------------------------
-ORIGINAL TEXT:
+---------------------------
+INPUT:
 {original}
 
-----------------------------------
-TAMIL TRANSLATION:
-{tamil}
-
-----------------------------------
+---------------------------
+OUTPUT:
+{translated}
 """
-    return content
 
 # ---------------- INPUT TABS ----------------
-tab1, tab2 = st.tabs(["🎤 Voice Input", "📝 Text Input"])
+tab1, tab2, tab3 = st.tabs(["📝 Text", "🎤 Voice", "🖼️ Image"])
 
-# ---------------- VOICE INPUT ----------------
+# TEXT INPUT
 with tab1:
-    st.subheader("🎤 Record Your Voice (Browser Mic)")
+    text_input = st.text_area("📝 Enter text (any language)", height=180)
+    if text_input:
+        st.session_state.input_text = text_input
 
-    audio = st.audio_input("Click and speak clearly")
-
+# VOICE INPUT
+with tab2:
+    audio = st.audio_input("🎤 Speak now")
     if audio:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as f:
             f.write(audio.getbuffer())
-            audio_path = f.name
-
+            path = f.name
         r = sr.Recognizer()
         try:
-            with sr.AudioFile(audio_path) as source:
-                audio_data = r.record(source)
-                voice_text = r.recognize_google(audio_data, language="en-IN")
-
-            st.success("✅ Voice recorded successfully")
-            st.text_area("Recognized Text", voice_text, height=120)
-
-            st.session_state["input_text"] = voice_text
-
+            with sr.AudioFile(path) as source:
+                data = r.record(source)
+                voice_text = r.recognize_google(data)
+            st.success("Voice recognized")
+            st.text_area("Detected text", voice_text)
+            st.session_state.input_text = voice_text
         except:
-            st.error("❌ Could not recognize voice. Try again.")
+            st.error("Could not recognize voice")
+        os.remove(path)
 
-        os.remove(audio_path)
+# IMAGE INPUT
+with tab3:
+    img = st.file_uploader("🖼️ Upload image", type=["png","jpg","jpeg"])
+    if img:
+        st.image(Image.open(img), width=250)
+        img_text = st.text_area("✍️ Type text from image")
+        if img_text:
+            st.session_state.input_text = img_text
 
-# ---------------- TEXT INPUT ----------------
-with tab2:
-    st.subheader("📝 Type or Paste Text")
-
-    text_input = st.text_area(
-        "Enter text in any language",
-        height=180,
-        placeholder="Example: Agriculture improves farmers income..."
-    )
-
-    if text_input:
-        st.session_state["input_text"] = text_input
-
-# ---------------- TRANSLATION ----------------
+# ---------------- OUTPUT SETTINGS ----------------
 st.markdown("---")
-if st.button("✨ TRANSLATE TO TAMIL", use_container_width=True):
-    if "input_text" not in st.session_state or not st.session_state["input_text"].strip():
-        st.warning("⚠️ Please provide input text or voice")
+output_lang = st.radio(
+    "🎯 Choose output language",
+    ["🇮🇳 Tamil", "🇬🇧 Simple English"],
+    horizontal=True
+)
+
+voice_out = st.checkbox("🔊 Voice output", value=True)
+doc_out = st.checkbox("📄 Download document", value=True)
+
+# ---------------- TRANSLATE ----------------
+if st.button("✨ TRANSLATE", use_container_width=True):
+    if "input_text" not in st.session_state:
+        st.warning("Please give input")
     else:
-        with st.spinner("Translating..."):
-            original_text = st.session_state["input_text"]
-            tamil_text = translate_to_tamil(original_text)
+        with st.spinner("Processing..."):
+            result = translate(st.session_state.input_text, output_lang)
 
-        st.subheader("🇮🇳 Tamil Translation")
-        st.success(tamil_text)
+        st.subheader("✅ Output")
+        st.success(result)
 
-        # Voice output
-        audio_file = text_to_speech(tamil_text)
-        st.audio(audio_file)
+        if voice_out:
+            audio = text_to_speech(result, output_lang)
+            st.audio(audio)
 
-        # Document download
-        doc_content = create_document(original_text, tamil_text)
-        st.download_button(
-            "📄 Download as Text File",
-            doc_content,
-            file_name="Talk2Tamil_Output.txt"
-        )
+        if doc_out:
+            doc = create_doc(st.session_state.input_text, result)
+            st.download_button(
+                "📄 Download",
+                doc,
+                file_name="Talk2Tamil_Output.txt"
+            )
 
-# ---------------- FOOTER ----------------
-st.markdown("""
-<hr>
-<p style='text-align:center; font-size:14px;'>
-Built using Streamlit | Voice + Tamil NLP Project
-</p>
-""", unsafe_allow_html=True)
+st.markdown("<hr><center>Final Year Project – Phase 2</center>", unsafe_allow_html=True)
