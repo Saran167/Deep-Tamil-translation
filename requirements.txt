@@ -3,5 +3,4 @@ deep-translator>=1.11.4
 gtts>=2.3.2
 requests>=2.31.0
 Pillow>=10.1.0
-SpeechRecognition>=3.10.0
-# PyAudio removed - requires system libraries
+# SpeechRecognition and PyAudio removed - using browser-based solution
