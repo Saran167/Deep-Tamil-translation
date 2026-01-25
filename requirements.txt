@@ -4,4 +4,4 @@ gtts>=2.3.2
 requests>=2.31.0
 Pillow>=10.1.0
 SpeechRecognition>=3.10.0
-pyaudio>=0.2.11
+# Removed pyaudio - it requires system libraries
