@@ -7,11 +7,27 @@ import base64
 from datetime import datetime
 from PIL import Image
 import os
-import speech_recognition as sr
-import pyaudio
-import wave
-import tempfile
 import json
+import tempfile
+import wave
+
+# ==================== HANDLE MISSING DEPENDENCIES ====================
+try:
+    import speech_recognition as sr
+    SPEECHRECOGNITION_AVAILABLE = True
+except ImportError:
+    SPEECHRECOGNITION_AVAILABLE = False
+    sr = None
+
+try:
+    import pyaudio
+    PYAUDIO_AVAILABLE = True
+except ImportError:
+    PYAUDIO_AVAILABLE = False
+    pyaudio = None
+
+# Check if audio features are available
+AUDIO_FEATURES_AVAILABLE = SPEECHRECOGNITION_AVAILABLE and PYAUDIO_AVAILABLE
 
 # ==================== PAGE CONFIG ====================
 st.set_page_config(
@@ -112,13 +128,34 @@ st.markdown("""
         color: white !important;
         border: none !important;
     }
+    
+    /* Warning/Info boxes */
+    .warning-box {
+        background: linear-gradient(135deg, #FFF3E0 0%, #FFECB3 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        border-left: 5px solid #FF9800;
+        margin: 1rem 0;
+    }
+    
+    .info-box {
+        background: linear-gradient(135deg, #E3F2FD 0%, #BBDEFB 100%);
+        padding: 1.5rem;
+        border-radius: 15px;
+        border-left: 5px solid #2196F3;
+        margin: 1rem 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ==================== FUNCTIONS ====================
 
 def record_audio(duration=5, sample_rate=16000):
-    """Record audio from microphone"""
+    """Record audio from microphone - with fallback"""
+    if not PYAUDIO_AVAILABLE:
+        st.warning("⚠️ Audio recording requires PyAudio. Please use text input instead.")
+        return None
+    
     try:
         p = pyaudio.PyAudio()
         
@@ -154,7 +191,10 @@ def record_audio(duration=5, sample_rate=16000):
         return None
 
 def transcribe_audio(audio_file):
-    """Convert speech to text"""
+    """Convert speech to text - with fallback"""
+    if not SPEECHRECOGNITION_AVAILABLE:
+        return "Speech recognition not available. Please type your message."
+    
     try:
         r = sr.Recognizer()
         with sr.AudioFile(audio_file) as source:
@@ -550,7 +590,7 @@ st.markdown("""
 <div class="main-header">
     <h1>🗣️🤖 Talk2Tamil: Smart Assistant</h1>
     <div style="display: flex; justify-content: center; gap: 20px; margin-top: 15px; flex-wrap: wrap;">
-        <span>🎤 REAL Voice Recording</span>
+        <span>🎤 Voice Recording <small>(if available)</small></span>
         <span>📸 Image Upload</span>
         <span>📝 Text Input</span>
         <span>🇮🇳 Tamil Output</span>
@@ -574,105 +614,166 @@ st.markdown("""
 input_tab1, input_tab2, input_tab3 = st.tabs(["🎤 Voice Recording", "📝 Type Text", "📸 Upload Image"])
 
 with input_tab1:
-    st.markdown("### 🎤 REAL Voice Recording (Like ChatGPT)")
+    st.markdown("### 🎤 Voice Recording")
+    
+    # Show warning if audio features not available
+    if not AUDIO_FEATURES_AVAILABLE:
+        st.markdown("""
+        <div class="warning-box">
+            <h4>⚠️ Voice Recording Setup Required</h4>
+            <p>For voice recording to work, you need:</p>
+            <ol>
+                <li><strong>PyAudio</strong> (requires PortAudio system library)</li>
+                <li><strong>SpeechRecognition</strong> Python package</li>
+                <li><strong>Working microphone</strong></li>
+            </ol>
+            <p><strong>Quick fix:</strong> Use the <strong>"Type Text"</strong> tab for now!</p>
+        </div>
+        """, unsafe_allow_html=True)
     
     col_v1, col_v2 = st.columns([2, 1])
     
     with col_v1:
-        st.markdown("""
-        <div style="background: #FFEBEE; padding: 20px; border-radius: 15px; margin: 10px 0;">
-            <h4>🎙️ Record Your Voice:</h4>
-            <p>1. Click <strong>"Start Recording"</strong><br>
-            2. Speak clearly in English<br>
-            3. Click <strong>"Stop Recording"</strong> when done<br>
-            4. Your speech will be converted to text automatically</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Voice recording buttons
-        col_rec1, col_rec2 = st.columns(2)
-        
-        with col_rec1:
-            if st.button("🔴 Start Recording", key="start_rec", use_container_width=True):
-                st.session_state.recording = True
-                st.session_state.voice_recorded = None
-                st.rerun()
-        
-        with col_rec2:
-            if st.button("⏹️ Stop Recording", key="stop_rec", use_container_width=True):
-                if st.session_state.recording:
-                    st.session_state.recording = False
-                    # Record and transcribe
-                    with st.spinner("🎤 Recording..."):
-                        audio_file = record_audio(duration=5)
-                        if audio_file:
-                            transcribed = transcribe_audio(audio_file)
-                            st.session_state.voice_text = transcribed
-                            st.session_state.voice_recorded = True
-                            os.unlink(audio_file)  # Clean up
-                    st.rerun()
-        
-        # Show recording status
-        if st.session_state.recording:
+        if AUDIO_FEATURES_AVAILABLE:
             st.markdown("""
-            <div class="recording-active">
-                <h3>🎤 RECORDING...</h3>
-                <p>Speak now! Recording for 5 seconds</p>
+            <div style="background: #FFEBEE; padding: 20px; border-radius: 15px; margin: 10px 0;">
+                <h4>🎙️ Record Your Voice:</h4>
+                <p>1. Click <strong>"Start Recording"</strong><br>
+                2. Speak clearly in English<br>
+                3. Click <strong>"Stop Recording"</strong> when done<br>
+                4. Your speech will be converted to text automatically</p>
             </div>
             """, unsafe_allow_html=True)
-        
-        # Show transcribed text
-        if st.session_state.voice_recorded and st.session_state.voice_text:
-            st.success("✅ Voice recorded successfully!")
-            st.text_area("🎤 Your voice input:", 
-                        st.session_state.voice_text, 
-                        height=150,
-                        key="voice_result")
             
-            # Use this text
-            if st.button("✅ Use This Voice Input", key="use_voice"):
-                st.session_state.current_input = st.session_state.voice_text
-                st.success("✅ Voice input set! Go to Translate section.")
-        
-        # Manual fallback
-        st.markdown("---")
-        st.markdown("#### 💬 Or type manually:")
-        manual_voice = st.text_area("Type your message:", height=100, key="manual_voice")
-        if manual_voice:
-            st.session_state.current_input = manual_voice
+            # Voice recording buttons
+            col_rec1, col_rec2 = st.columns(2)
+            
+            with col_rec1:
+                if st.button("🔴 Start Recording", key="start_rec", use_container_width=True):
+                    st.session_state.recording = True
+                    st.session_state.voice_recorded = None
+                    st.rerun()
+            
+            with col_rec2:
+                if st.button("⏹️ Stop Recording", key="stop_rec", use_container_width=True):
+                    if st.session_state.recording:
+                        st.session_state.recording = False
+                        # Record and transcribe
+                        with st.spinner("🎤 Recording..."):
+                            audio_file = record_audio(duration=5)
+                            if audio_file:
+                                transcribed = transcribe_audio(audio_file)
+                                st.session_state.voice_text = transcribed
+                                st.session_state.voice_recorded = True
+                                if os.path.exists(audio_file):
+                                    os.unlink(audio_file)  # Clean up
+                        st.rerun()
+            
+            # Show recording status
+            if st.session_state.recording:
+                st.markdown("""
+                <div class="recording-active">
+                    <h3>🎤 RECORDING...</h3>
+                    <p>Speak now! Recording for 5 seconds</p>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Show transcribed text
+            if st.session_state.voice_recorded and st.session_state.voice_text:
+                st.success("✅ Voice recorded successfully!")
+                st.text_area("🎤 Your voice input:", 
+                            st.session_state.voice_text, 
+                            height=150,
+                            key="voice_result")
+                
+                # Use this text
+                if st.button("✅ Use This Voice Input", key="use_voice"):
+                    st.session_state.current_input = st.session_state.voice_text
+                    st.success("✅ Voice input set! Go to Translate section.")
+            
+            # Manual fallback
+            st.markdown("---")
+            st.markdown("#### 💬 Or type manually:")
+            manual_voice = st.text_area("Type your message:", height=100, key="manual_voice")
+            if manual_voice:
+                st.session_state.current_input = manual_voice
+        else:
+            # Audio features not available - show alternative
+            st.markdown("""
+            <div class="info-box">
+                <h4>💬 Use Text Input Instead</h4>
+                <p>While voice recording is being set up, please use text input:</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            manual_input = st.text_area(
+                "Type or paste your text here:", 
+                height=150,
+                placeholder="Type what you want to translate...\n\nExamples:\n• 'Agriculture helps farmers grow more crops'\n• 'Bank security is important for everyone'\n• 'AI technology can improve farming'",
+                key="fallback_text_input"
+            )
+            
+            if manual_input:
+                st.session_state.current_input = manual_input
     
     with col_v2:
-        st.markdown("### 🎯 Voice Tips")
+        st.markdown("### 🎯 Input Methods")
         st.markdown("""
-        **For clear recording:**
+        **Available now:**
         
-        🔊 **Speak clearly**
-        🎤 **Hold microphone close**
-        🏠 **Quiet room**
-        🗣️ **English works best**
-        ⏸️ **Pause between sentences**
+        ✅ **Text Input** - Works perfectly
+        ✅ **Image Upload** - Works with manual typing
+        ✅ **Copy-Paste** - Always works
         
-        **Supported on:**
-        - Windows/Mac/Linux
-        - Chrome/Firefox
-        - Need microphone
+        **If setup:**
+        
+        ⚙️ **Voice Recording** - Needs system setup
+        🎤 **Microphone** - Needs browser permission
+        
+        **Quick Start:**
+        
+        1. Go to **"Type Text"** tab
+        2. Enter your content
+        3. Click **"Translate"**
+        4. Get results instantly!
         """)
-        
-        # Test microphone
-        if st.button("🎵 Test Microphone", key="test_mic"):
-            st.info("Click 'Start Recording' above to test")
 
 with input_tab2:
     st.markdown("### ✍️ Type or Paste Text")
+    st.markdown("""
+    <div class="info-box">
+        <p><strong>💡 Best option for now!</strong> Type in English, Tamil, or any language.</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     text_input = st.text_area(
         "Enter your text in any language:",
         height=200,
-        placeholder="Type or paste your text here...\nExamples:\n• 'Agriculture helps in economic growth'\n• 'Bank OTP should not be shared'\n• 'AI is useful in farming'",
+        placeholder="Type or paste your text here...\n\nExamples:\n• 'Agriculture helps in economic growth'\n• 'Bank OTP should not be shared with anyone'\n• 'AI is useful in farming for crop prediction'\n• 'Regular exercise maintains good health'\n• 'Education improves career opportunities'",
         key="text_input",
         help="Type in English, Tamil, or any language"
     )
     if text_input:
         st.session_state.current_input = text_input
+    
+    # Quick examples
+    st.markdown("#### 🚀 Quick Examples:")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("🌾 Agriculture", use_container_width=True):
+            st.session_state.current_input = "Good agriculture practices increase crop yield and farmer income through better irrigation and soil management."
+            st.rerun()
+    
+    with col2:
+        if st.button("🏦 Banking", use_container_width=True):
+            st.session_state.current_input = "Never share your bank OTP with anyone for security. Use UPI apps safely with password protection."
+            st.rerun()
+    
+    with col3:
+        if st.button("🤖 AI", use_container_width=True):
+            st.session_state.current_input = "Artificial intelligence helps farmers with crop prediction and disease detection using smart technology."
+            st.rerun()
 
 with input_tab3:
     st.markdown("### 📸 Upload Image with Text")
@@ -687,10 +788,17 @@ with input_tab3:
         image = Image.open(uploaded_file)
         st.image(image, caption="📸 Uploaded Image", width=300)
         
-        st.info("🔍 For image text extraction, please type the text manually below:")
+        st.markdown("""
+        <div class="info-box">
+            <p><strong>📝 Manual Entry Required:</strong> Please type the text from the image below.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         image_text = st.text_area("📝 Type text from image:", height=150, key="image_text")
         if image_text:
             st.session_state.current_input = image_text
+    else:
+        st.info("📸 Upload an image containing text, then type the text manually below.")
 
 # ==================== OUTPUT SETTINGS ====================
 st.markdown("---")
@@ -709,7 +817,7 @@ with col_set1:
     voice_output = st.checkbox(
         "🔊 Generate voice output",
         value=True,
-        help="Listen to translations"
+        help="Listen to translations (requires internet)"
     )
     
     doc_output = st.checkbox(
@@ -730,40 +838,49 @@ with col_set2:
 
 # ==================== TRANSLATE BUTTON ====================
 st.markdown("---")
-if st.button(
-    "✨ TRANSLATE & GET SMART TIPS",
-    type="primary",
-    use_container_width=True,
-    key="translate_btn"
-):
-    if st.session_state.current_input and st.session_state.current_input.strip():
-        with st.spinner("🔄 Processing..."):
-            # Get translation
-            tamil_text = ""
-            english_text = ""
-            
-            if output_option in ["🇮🇳 Tamil Only", "🌍 Both Languages"]:
-                tamil_text = translate_text(st.session_state.current_input, 'ta')
-            
-            if output_option in ["🇬🇧 Simple English Only", "🌍 Both Languages"]:
-                english_text = simplify_english(st.session_state.current_input)
-            
-            # Get daily tips with IMPROVED detection
-            tips_lang_code = 'ta' if tips_language == "🇮🇳 Tamil" else 'en'
-            daily_tips, detected_topic = get_daily_tips(st.session_state.current_input, tips_lang_code)
-            
-            # Store in session
-            st.session_state.translation_result = {
-                'original': st.session_state.current_input,
-                'tamil': tamil_text,
-                'english': english_text,
-                'daily_tips': daily_tips,
-                'detected_topic': detected_topic,
-                'tips_language': tips_language,
-                'output_option': output_option
-            }
-    else:
-        st.warning("⚠️ Please enter some text first!")
+col_translate1, col_translate2 = st.columns([3, 1])
+
+with col_translate1:
+    if st.button(
+        "✨ TRANSLATE & GET SMART TIPS",
+        type="primary",
+        use_container_width=True,
+        key="translate_btn"
+    ):
+        if st.session_state.current_input and st.session_state.current_input.strip():
+            with st.spinner("🔄 Processing translation and analysis..."):
+                # Get translation
+                tamil_text = ""
+                english_text = ""
+                
+                if output_option in ["🇮🇳 Tamil Only", "🌍 Both Languages"]:
+                    tamil_text = translate_text(st.session_state.current_input, 'ta')
+                
+                if output_option in ["🇬🇧 Simple English Only", "🌍 Both Languages"]:
+                    english_text = simplify_english(st.session_state.current_input)
+                
+                # Get daily tips with IMPROVED detection
+                tips_lang_code = 'ta' if tips_language == "🇮🇳 Tamil" else 'en'
+                daily_tips, detected_topic = get_daily_tips(st.session_state.current_input, tips_lang_code)
+                
+                # Store in session
+                st.session_state.translation_result = {
+                    'original': st.session_state.current_input,
+                    'tamil': tamil_text,
+                    'english': english_text,
+                    'daily_tips': daily_tips,
+                    'detected_topic': detected_topic,
+                    'tips_language': tips_language,
+                    'output_option': output_option
+                }
+        else:
+            st.warning("⚠️ Please enter some text first!")
+
+with col_translate2:
+    if st.button("🔄 Clear Results", use_container_width=True):
+        st.session_state.translation_result = None
+        st.session_state.current_input = ""
+        st.rerun()
 
 # ==================== RESULTS SECTION ====================
 if st.session_state.translation_result:
@@ -772,6 +889,7 @@ if st.session_state.translation_result:
     st.markdown("""
     <div class="output-section">
         <h2>📊 Translation Results</h2>
+        <p>Smart analysis complete! Here are your results:</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -786,7 +904,7 @@ if st.session_state.translation_result:
     }
     
     emoji = topic_emojis.get(result['detected_topic'], '💡')
-    st.info(f"{emoji} **Smart Detection:** Your text is about **{result['detected_topic'].upper()}**")
+    st.success(f"{emoji} **Smart Detection:** Your text is about **{result['detected_topic'].upper()}**")
     
     # Display translations
     if result['output_option'] == "🌍 Both Languages":
@@ -795,67 +913,96 @@ if st.session_state.translation_result:
         with col_tamil:
             st.markdown("### 🇮🇳 தமிழ் மொழிபெயர்ப்பு")
             if result['tamil']:
-                st.success(result['tamil'])
+                st.markdown(f"""
+                <div style="background: #E8F5E9; padding: 20px; border-radius: 10px; border-left: 5px solid #4CAF50;">
+                    {result['tamil']}
+                </div>
+                """, unsafe_allow_html=True)
                 
                 if voice_output:
                     if st.button("🔊 Play Tamil Audio", key="play_tamil"):
-                        audio_file = generate_audio(result['tamil'], 'ta')
-                        if audio_file:
-                            st.audio(audio_file, format='audio/mp3')
+                        with st.spinner("Generating Tamil audio..."):
+                            audio_file = generate_audio(result['tamil'], 'ta')
+                            if audio_file:
+                                st.audio(audio_file, format='audio/mp3')
+                                st.success("✅ Tamil audio ready!")
         
         with col_english:
             st.markdown("### 🇬🇧 Simple English")
             if result['english']:
-                st.success(result['english'])
+                st.markdown(f"""
+                <div style="background: #E3F2FD; padding: 20px; border-radius: 10px; border-left: 5px solid #2196F3;">
+                    {result['english']}
+                </div>
+                """, unsafe_allow_html=True)
                 
                 if voice_output:
                     if st.button("🔊 Play English Audio", key="play_english"):
-                        audio_file = generate_audio(result['english'], 'en')
-                        if audio_file:
-                            st.audio(audio_file, format='audio/mp3')
+                        with st.spinner("Generating English audio..."):
+                            audio_file = generate_audio(result['english'], 'en')
+                            if audio_file:
+                                st.audio(audio_file, format='audio/mp3')
+                                st.success("✅ English audio ready!")
     
     elif result['output_option'] == "🇮🇳 Tamil Only":
         st.markdown("### 🇮🇳 Tamil Translation")
         if result['tamil']:
-            st.success(result['tamil'])
+            st.markdown(f"""
+            <div style="background: #E8F5E9; padding: 25px; border-radius: 12px; border-left: 5px solid #4CAF50; margin: 20px 0;">
+                <h4 style="margin-top: 0;">தமிழ் மொழிபெயர்ப்பு:</h4>
+                <p style="font-size: 18px; line-height: 1.6;">{result['tamil']}</p>
+            </div>
+            """, unsafe_allow_html=True)
             
             if voice_output:
-                if st.button("🔊 Play Tamil Audio", key="play_tamil_only"):
-                    audio_file = generate_audio(result['tamil'], 'ta')
-                    if audio_file:
-                        st.audio(audio_file, format='audio/mp3')
+                if st.button("🔊 Play Tamil Audio", key="play_tamil_only", use_container_width=True):
+                    with st.spinner("Generating Tamil audio..."):
+                        audio_file = generate_audio(result['tamil'], 'ta')
+                        if audio_file:
+                            st.audio(audio_file, format='audio/mp3')
+                            st.success("✅ Tamil audio ready!")
     
     else:
         st.markdown("### 🇬🇧 Simplified English")
         if result['english']:
-            st.success(result['english'])
+            st.markdown(f"""
+            <div style="background: #E3F2FD; padding: 25px; border-radius: 12px; border-left: 5px solid #2196F3; margin: 20px 0;">
+                <h4 style="margin-top: 0;">Simple English Version:</h4>
+                <p style="font-size: 18px; line-height: 1.6;">{result['english']}</p>
+            </div>
+            """, unsafe_allow_html=True)
             
             if voice_output:
-                if st.button("🔊 Play English Audio", key="play_english_only"):
-                    audio_file = generate_audio(result['english'], 'en')
-                    if audio_file:
-                        st.audio(audio_file, format='audio/mp3')
+                if st.button("🔊 Play English Audio", key="play_english_only", use_container_width=True):
+                    with st.spinner("Generating English audio..."):
+                        audio_file = generate_audio(result['english'], 'en')
+                        if audio_file:
+                            st.audio(audio_file, format='audio/mp3')
+                            st.success("✅ English audio ready!")
     
     # ==================== DAILY TIPS SECTION ====================
     st.markdown("---")
     st.markdown(f"""
     <div class="daily-tip">
-        <h2><span class="tip-icon">💡</span> Smart Daily Tips for {result['detected_topic'].upper()} ({result['tips_language']})</h2>
+        <h2><span style="font-size: 30px;">💡</span> Smart Daily Tips for {result['detected_topic'].upper()} ({result['tips_language']})</h2>
         <p>Based on your input about <strong>{result['detected_topic'].upper()}</strong>, here are useful tips:</p>
     </div>
     """, unsafe_allow_html=True)
     
     if result['daily_tips']:
-        for i, tip in enumerate(result['daily_tips'][:5]):
-            st.markdown(f"""
-            <div style="background: {'#FFF9C4' if i % 2 == 0 else '#E1F5FE'}; 
-                        padding: 15px; 
-                        border-radius: 10px; 
-                        margin: 10px 0;">
-                <h4>{topic_emojis.get(result['detected_topic'], '💡')} Tip {i+1}</h4>
-                <p>{tip}</p>
-            </div>
-            """, unsafe_allow_html=True)
+        cols = st.columns(2)
+        for i, tip in enumerate(result['daily_tips'][:6]):  # Show max 6 tips
+            with cols[i % 2]:
+                st.markdown(f"""
+                <div style="background: {'#FFF9C4' if i % 2 == 0 else '#E1F5FE'}; 
+                            padding: 15px; 
+                            border-radius: 10px; 
+                            margin: 10px 0;
+                            border-left: 4px solid {'#FF9800' if i % 2 == 0 else '#2196F3'}">
+                    <h4>{topic_emojis.get(result['detected_topic'], '💡')} Tip {i+1}</h4>
+                    <p>{tip}</p>
+                </div>
+                """, unsafe_allow_html=True)
         
         # Document download
         if doc_output:
@@ -876,8 +1023,14 @@ if st.session_state.translation_result:
                 data=doc_content,
                 file_name=f"talk2tamil_{result['detected_topic']}_{datetime.now().strftime('%Y%m%d')}.txt",
                 mime="text/plain",
-                key="download_doc"
+                key="download_doc",
+                use_container_width=True
             )
+            
+            # Share results
+            st.markdown("---")
+            st.markdown("### 🔗 Share Your Results")
+            st.code(f"Topic: {result['detected_topic'].upper()}\n\nTamil: {result['tamil'][:100]}...\n\nEnglish: {result['english'][:100]}...", language="text")
 
 # ==================== SIDEBAR ====================
 with st.sidebar:
@@ -894,7 +1047,7 @@ with st.sidebar:
     
     selected = st.selectbox("Choose test topic:", list(test_topics.keys()))
     
-    if st.button("📝 Use This Topic", key="use_topic"):
+    if st.button("📝 Use This Topic", key="use_topic", use_container_width=True):
         st.session_state.current_input = test_topics[selected]
         st.rerun()
     
@@ -911,13 +1064,32 @@ with st.sidebar:
     """)
     
     st.markdown("---")
-    st.markdown("## 🎤 Voice Recording")
+    
+    # Show system status
+    st.markdown("## ⚙️ System Status")
+    
+    status_col1, status_col2 = st.columns(2)
+    
+    with status_col1:
+        if AUDIO_FEATURES_AVAILABLE:
+            st.success("🎤 Voice: Ready")
+        else:
+            st.warning("🎤 Voice: Setup needed")
+    
+    with status_col2:
+        st.success("📝 Text: Ready")
+    
+    st.markdown("---")
+    
+    # Feature availability
+    st.markdown("## ✅ Features Available")
     st.markdown("""
-    **Requirements:**
-    - Working microphone
-    - Allow browser access
-    - Speak in English
-    - Clear background
+    - Text input/output ✓
+    - Translation ✓
+    - Daily tips ✓
+    - Voice output ✓
+    - Document download ✓
+    - Image upload ✓
     """)
 
 # ==================== FOOTER ====================
@@ -925,7 +1097,17 @@ st.markdown("---")
 st.markdown("""
 <div style='text-align: center; padding: 2rem; color: #666;'>
     <p>🚀 <strong>Talk2Tamil: Complete Smart Assistant</strong></p>
-    <p>🎤 REAL Voice Recording | 📸 Image Upload | 📝 Text Input | 🇮🇳 Tamil | 🇬🇧 Simple English</p>
-    <p>💡 Smart Topic Detection | 🔊 Voice Output | 📄 Document Download</p>
+    <p>📝 Text Input | 🇮🇳 Tamil Translation | 🇬🇧 Simple English | 💡 Smart Tips</p>
+    <p>🔊 Voice Output | 📄 Document Download | 📸 Image Support</p>
+    <p><small>Note: Voice recording requires additional system setup</small></p>
 </div>
 """, unsafe_allow_html=True)
+
+# ==================== DEBUG INFO (hidden by default) ====================
+if st.sidebar.checkbox("🔧 Show Debug Info", False):
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🔧 Debug Information")
+    st.sidebar.write(f"Audio features available: {AUDIO_FEATURES_AVAILABLE}")
+    st.sidebar.write(f"PyAudio available: {PYAUDIO_AVAILABLE}")
+    st.sidebar.write(f"SpeechRecognition available: {SPEECHRECOGNITION_AVAILABLE}")
+    st.sidebar.write(f"Current input length: {len(st.session_state.current_input) if st.session_state.current_input else 0}")
