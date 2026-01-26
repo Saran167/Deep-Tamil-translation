@@ -1,4 +1,5 @@
 import streamlit as st
+from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
 import speech_recognition as sr
 from deep_translator import GoogleTranslator
 from langdetect import detect
@@ -7,41 +8,38 @@ from fpdf import FPDF
 from PIL import Image
 import pytesseract
 import tempfile
+import av
 
-# ---------------- CONFIG ----------------
 st.set_page_config(page_title="Deep Tamil Translator", layout="wide")
 
+# ---------------- AUDIO PROCESSOR ----------------
+class AudioProcessor(AudioProcessorBase):
+    def __init__(self):
+        self.recognizer = sr.Recognizer()
+        self.audio_data = b""
+
+    def recv(self, frame: av.AudioFrame):
+        pcm = frame.to_ndarray()
+        self.audio_data += pcm.tobytes()
+        return frame
+
 # ---------------- FUNCTIONS ----------------
-def detect_language(text):
-    try:
-        return detect(text)
-    except:
-        return "unknown"
-
-def chunk_text(text, size=4500):
-    return [text[i:i+size] for i in range(0, len(text), size)]
-
-def translate_text(text, target):
+def translate(text, target):
     translator = GoogleTranslator(source="auto", target=target)
-    output = ""
-    for chunk in chunk_text(text):
-        output += translator.translate(chunk) + " "
-    return output.strip()
+    return translator.translate(text)
 
 def improve_tamil(text):
-    rules = {
+    replacements = {
         "நான் இருக்கிறேன்": "நான் உள்ளேன்",
         "எனக்கு தெரியும்": "எனக்குத் தெரியும்",
-        "மிகவும் நல்லது": "மிகச் சிறந்தது",
         "நீங்கள் எப்படி இருக்கிறீர்கள்": "நீங்கள் எப்படி உள்ளீர்கள்"
     }
-    for k, v in rules.items():
+    for k, v in replacements.items():
         text = text.replace(k, v)
     return text
 
 def simple_english(text):
-    simplified = GoogleTranslator(source="auto", target="en").translate(text)
-    return simplified
+    return GoogleTranslator(source="auto", target="en").translate(text)
 
 def text_to_voice(text, lang):
     tts = gTTS(text=text, lang=lang)
@@ -49,78 +47,81 @@ def text_to_voice(text, lang):
     tts.save(file.name)
     return file.name
 
-def create_pdf(input_text, output_text):
+def create_pdf(inp, out):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
-    pdf.multi_cell(0, 8, "INPUT:\n" + input_text + "\n\nOUTPUT:\n" + output_text)
+    pdf.multi_cell(0, 8, f"INPUT:\n{inp}\n\nOUTPUT:\n{out}")
     file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf.output(file.name)
     return file.name
 
-def image_to_text(img):
-    return pytesseract.image_to_string(img)
-
 # ---------------- UI ----------------
-st.title("🌐 Any Language → Tamil / Simple English")
+st.title("🎙️ Any Language → Tamil / Simple English")
 
-input_mode = st.radio("Choose Input Type", ["Text", "Voice", "Image"])
+mode = st.radio("Input Mode", ["Text", "Mic", "Image"])
 
 input_text = ""
 
-# TEXT INPUT
-if input_mode == "Text":
+# TEXT
+if mode == "Text":
     input_text = st.text_area("Enter text", height=200)
 
-# VOICE INPUT
-elif input_mode == "Voice":
-    audio = st.file_uploader("Upload WAV audio", type=["wav"])
-    if audio:
-        r = sr.Recognizer()
-        with sr.AudioFile(audio) as source:
-            input_text = r.recognize_google(r.record(source))
-        st.success("Voice converted to text")
-        st.write(input_text)
+# MIC
+elif mode == "Mic":
+    st.info("Click START and speak")
+    ctx = webrtc_streamer(
+        key="speech",
+        audio_processor_factory=AudioProcessor,
+        media_stream_constraints={"audio": True, "video": False},
+    )
+    if ctx.audio_processor:
+        if st.button("Stop & Convert"):
+            r = sr.Recognizer()
+            audio = sr.AudioData(
+                ctx.audio_processor.audio_data,
+                sample_rate=44100,
+                sample_width=2,
+            )
+            input_text = r.recognize_google(audio)
+            st.success("Speech converted to text")
+            st.write(input_text)
 
-# IMAGE INPUT
-elif input_mode == "Image":
+# IMAGE
+elif mode == "Image":
     img_file = st.file_uploader("Upload image", type=["png", "jpg", "jpeg"])
     if img_file:
         img = Image.open(img_file)
-        input_text = image_to_text(img)
+        input_text = pytesseract.image_to_string(img)
         st.success("Image converted to text")
         st.write(input_text)
 
-# PROCESS
+# OUTPUT
 if input_text:
-    lang = detect_language(input_text)
-    st.info(f"Detected language: {lang.upper()}")
+    detected = detect(input_text)
+    st.info(f"Detected Language: {detected}")
 
-    output_lang = st.selectbox("Select Output Language", ["Tamil", "English"])
+    out_lang = st.selectbox("Output Language", ["Tamil", "English"])
 
     if st.button("Translate"):
-        if output_lang == "Tamil":
-            result = improve_tamil(translate_text(input_text, "ta"))
+        if out_lang == "Tamil":
+            output = improve_tamil(translate(input_text, "ta"))
             lang_code = "ta"
         else:
-            result = simple_english(input_text)
+            output = simple_english(input_text)
             lang_code = "en"
 
         st.subheader("Output")
-        st.success(result)
+        st.success(output)
 
-        col1, col2 = st.columns(2)
+        if st.button("🔊 Voice Output"):
+            audio = text_to_voice(output, lang_code)
+            st.audio(audio)
+            st.download_button("Download Voice", open(audio, "rb"), "output.mp3")
 
-        with col1:
-            if st.button("🔊 Voice Output"):
-                audio_path = text_to_voice(result, lang_code)
-                st.audio(audio_path)
-                st.download_button("Download Voice", open(audio_path, "rb"), "output.mp3")
-
-        with col2:
-            if st.button("📄 Download PDF"):
-                pdf_path = create_pdf(input_text, result)
-                st.download_button("Download PDF", open(pdf_path, "rb"), "output.pdf")
+        if st.button("📄 Download PDF"):
+            pdf = create_pdf(input_text, output)
+            st.download_button("Download PDF", open(pdf, "rb"), "output.pdf")
 
         st.markdown("### Feedback")
         st.button("👍 Helpful")
