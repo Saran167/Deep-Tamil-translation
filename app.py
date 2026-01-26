@@ -8,6 +8,11 @@ import tempfile
 import datetime
 import re
 import torch
+import warnings
+warnings.filterwarnings('ignore')
+
+# Ensure consistent language detection
+DetectorFactory.seed = 0
 
 # --------------------------------------------------
 # PAGE CONFIG
@@ -25,18 +30,12 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap');
     
-    body {
-        font-family: 'Poppins', sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    }
-    
     .main-header {
         text-align: center;
         color: white;
         padding: 20px;
         border-radius: 20px;
-        background: rgba(255, 255, 255, 0.1);
-        backdrop-filter: blur(10px);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         margin-bottom: 30px;
     }
     
@@ -114,9 +113,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Ensure consistent language detection
-DetectorFactory.seed = 0
-
 # --------------------------------------------------
 # TITLE + STEPS
 # --------------------------------------------------
@@ -159,16 +155,17 @@ st.markdown("""
 @st.cache_resource
 def load_translator():
     try:
-        model_name = "Helsinki-NLP/opus-mt-mul-en"
+        # Use MarianMT model which is lighter and supports Tamil
+        model_name = "Helsinki-NLP/opus-mt-en-ta"  # English to Tamil
         return pipeline("translation", model=model_name)
-    except:
-        # Fallback to a simpler model
-        return pipeline("translation_en_to_fr")  # This will be used differently
+    except Exception as e:
+        st.warning(f"Could not load translation model: {e}")
+        return None
 
 translator = load_translator()
 
 # --------------------------------------------------
-# SPOKEN TAMIL RULES (Improved)
+# SPOKEN TAMIL RULES
 # --------------------------------------------------
 spoken_tamil_map = {
     "நான்": "நா",
@@ -188,7 +185,7 @@ spoken_tamil_map = {
 }
 
 # --------------------------------------------------
-# SIMPLE ENGLISH RULES (Improved)
+# SIMPLE ENGLISH RULES
 # --------------------------------------------------
 simple_english_map = {
     "kindly": "please",
@@ -228,7 +225,7 @@ def detect_language(text):
         return lang_names.get(lang, f"Unknown ({lang})")
     except LangDetectException:
         return "Could not detect"
-    except:
+    except Exception as e:
         return "Unknown"
 
 def highlight_changes(original, modified, replacements):
@@ -243,7 +240,7 @@ def highlight_changes(original, modified, replacements):
         # Check if this word was replaced
         found = False
         for formal, spoken in replacements.items():
-            if clean_word.lower() == spoken.lower() or clean_word.lower() == formal.lower():
+            if spoken.lower() in clean_word.lower():
                 highlighted_words.append(f'<span class="highlight">{word}</span>')
                 found = True
                 break
@@ -255,6 +252,9 @@ def highlight_changes(original, modified, replacements):
 
 def chunk_text(text, size=200):
     """Split text into manageable chunks for translation"""
+    if len(text) <= size:
+        return [text]
+    
     # Split by sentences first
     sentences = re.split(r'(?<=[.!?।॥]) +', text)
     chunks = []
@@ -262,7 +262,7 @@ def chunk_text(text, size=200):
     
     for sentence in sentences:
         if len(current_chunk) + len(sentence) <= size:
-            current_chunk += " " + sentence
+            current_chunk += " " + sentence if current_chunk else sentence
         else:
             if current_chunk:
                 chunks.append(current_chunk.strip())
@@ -273,43 +273,62 @@ def chunk_text(text, size=200):
     
     return chunks
 
-def translate_with_fallback(text, target_lang):
+def translate_text(text, target_lang):
     """Translate text with fallback logic"""
     try:
-        # For demo purposes, we'll use a simple translation approach
-        # In production, you'd use proper translation APIs
-        
-        if target_lang == "ta":  # Tamil
-            # Simple English to Tamil translation (demo)
-            translations = {
-                "hello": "வணக்கம்",
-                "thank you": "நன்றி",
-                "how are you": "எப்படி இருக்கிறீர்கள்",
-                "good morning": "காலை வணக்கம்",
-                "please help me": "தயவு செய்து எனக்கு உதவுங்கள்"
-            }
-            
-            for eng, tam in translations.items():
-                if eng in text.lower():
-                    return text.lower().replace(eng, tam)
-            
-            # Fallback: Just return the text with Tamil markers
-            return f"[TAMIL: {text}]"
-        
-        elif target_lang == "en":  # English
-            # Simple language to English (demo)
-            if any(char in text for char in ["வ", "ந", "த", "க"]):  # Tamil characters
+        if translator is None:
+            # Fallback translation for demo
+            if target_lang == "ta":  # Tamil
+                # Simple English to Tamil translation (demo)
                 translations = {
+                    "hello": "வணக்கம்",
+                    "thank you": "நன்றி",
+                    "how are you": "எப்படி இருக்கிறீர்கள்",
+                    "good morning": "காலை வணக்கம்",
+                    "please help me": "தயவு செய்து எனக்கு உதவுங்கள்",
+                    "i want to eat": "நான் சாப்பிட வேண்டும்",
+                    "water": "தண்ணீர்",
+                    "food": "உணவு"
+                }
+                
+                for eng, tam in translations.items():
+                    if eng in text.lower():
+                        return text.lower().replace(eng, tam)
+                
+                # Fallback: Add Tamil marker
+                return f"[Translated to Tamil: {text}]"
+            
+            elif target_lang == "en":  # English
+                # Simple language to English (demo)
+                tamil_words = {
                     "வணக்கம்": "Hello",
                     "நன்றி": "Thank you",
-                    "எப்படி இருக்கிறீர்கள்": "How are you"
+                    "எப்படி": "How",
+                    "இருக்கிறீர்கள்": "are you",
+                    "காலை": "morning",
+                    "தயவு": "please",
+                    "உதவுங்கள்": "help"
                 }
-                for tam, eng in translations.items():
-                    if tam in text:
-                        return text.replace(tam, eng)
-            
-            return text  # Keep as is for demo
+                
+                result = text
+                for tam, eng in tamil_words.items():
+                    if tam in result:
+                        result = result.replace(tam, eng)
+                
+                return result
         
+        # Use the translator if available
+        if target_lang == "ta":  # English to Tamil
+            if translator:
+                translated = translator(text)[0]['translation_text']
+                return translated
+            else:
+                return text
+        
+        elif target_lang == "en":  # Assume input is Tamil
+            # For demo, reverse the spoken Tamil map
+            return text  # Return as is for demo
+            
     except Exception as e:
         st.error(f"Translation error: {str(e)}")
         return text
@@ -328,7 +347,7 @@ def apply_spoken_rules(text, language):
     return text
 
 # --------------------------------------------------
-# PDF GENERATION (Improved)
+# PDF GENERATION
 # --------------------------------------------------
 def create_pdf(input_text, output_text, in_lang, out_lang):
     pdf = FPDF()
@@ -380,7 +399,7 @@ def create_pdf(input_text, output_text, in_lang, out_lang):
 # Input Section
 st.markdown("<div class='block'>", unsafe_allow_html=True)
 st.subheader("📝 Enter Your Text")
-input_text = st.text_area("", placeholder="Type or paste your text here...", height=150)
+input_text = st.text_area("Enter your text here:", placeholder="Type or paste your text here...", height=150, label_visibility="visible")
 st.markdown("</div>", unsafe_allow_html=True)
 
 # Language Selection
@@ -423,9 +442,13 @@ if process_btn and input_text.strip():
         if "Tamil" in output_lang:
             target_lang = "ta"
             is_tamil = True
+            lang_name = "Spoken Tamil"
+            replacements = spoken_tamil_map
         else:
             target_lang = "en"
             is_tamil = False
+            lang_name = "Simple English"
+            replacements = simple_english_map
         
         # Step 1: Translate
         st.markdown("<div class='block'>", unsafe_allow_html=True)
@@ -439,13 +462,13 @@ if process_btn and input_text.strip():
             
             translated_chunks = []
             for i, chunk in enumerate(chunks):
-                translated = translate_with_fallback(chunk, target_lang)
+                translated = translate_text(chunk, target_lang)
                 translated_chunks.append(translated)
                 progress_bar.progress((i + 1) / len(chunks))
             
             translated_text = " ".join(translated_chunks)
         else:
-            translated_text = translate_with_fallback(input_text, target_lang)
+            translated_text = translate_text(input_text, target_lang)
         
         st.success("✓ Translation completed!")
         st.markdown("</div>", unsafe_allow_html=True)
@@ -457,12 +480,8 @@ if process_btn and input_text.strip():
         # Apply appropriate rules
         if is_tamil:
             final_output = apply_spoken_rules(translated_text, "Tamil")
-            replacements = spoken_tamil_map
-            lang_name = "Spoken Tamil"
         else:
             final_output = apply_spoken_rules(translated_text, "English")
-            replacements = simple_english_map
-            lang_name = "Simple English"
         
         # Highlight changed words
         highlighted_output = highlight_changes(translated_text, final_output, replacements)
@@ -601,3 +620,7 @@ with st.sidebar:
     - And many more...
     """)
     st.markdown("</div>", unsafe_allow_html=True)
+
+# Add device info
+device = "cuda" if torch.cuda.is_available() else "cpu"
+st.sidebar.info(f"Device: {device}")
