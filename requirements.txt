@@ -2,9 +2,6 @@ streamlit
 transformers
 torch
 sentencepiece
-speechrecognition
-gtts
-pillow
-pytesseract
-fpdf
 langdetect
+gtts
+fpdf
