@@ -1,176 +1,202 @@
 import streamlit as st
+from langdetect import detect
 from transformers import pipeline
-import speech_recognition as sr
 from gtts import gTTS
-from PIL import Image
-import pytesseract
 from fpdf import FPDF
 import tempfile
-import os
-import langdetect
+import datetime
+import re
 
-# ---------------- PAGE CONFIG ----------------
+# --------------------------------------------------
+# PAGE CONFIG
+# --------------------------------------------------
 st.set_page_config(
     page_title="Smart Tamil–English Translator",
     page_icon="🌈",
     layout="wide"
 )
 
-# ---------------- CUSTOM CSS ----------------
+# --------------------------------------------------
+# UI STYLING
+# --------------------------------------------------
 st.markdown("""
 <style>
 body {
     background: linear-gradient(to right, #fbc2eb, #a6c1ee);
 }
-.main {
-    background-color: #ffffffcc;
+.block {
+    background: white;
     padding: 20px;
-    border-radius: 20px;
+    border-radius: 16px;
+    margin-bottom: 20px;
 }
-h1 {
-    color: #4a148c;
-}
-.stButton>button {
-    background-color: #7b1fa2;
-    color: white;
-    border-radius: 10px;
+.highlight {
+    color: #2e7d32;
+    font-weight: bold;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- TITLE ----------------
+# --------------------------------------------------
+# TITLE + STEPS
+# --------------------------------------------------
 st.title("🌈 Smart Spoken Tamil & Simple English Translator")
-st.caption("Any Language ➜ Natural Tamil | Simple English")
 
-# ---------------- LOAD MODELS ----------------
+st.markdown("""
+📥 **Input** → 🔁 **Process** → 📤 **Output** → 📄 **Download**
+""")
+
+# --------------------------------------------------
+# LOAD TRANSLATOR (SAFE)
+# --------------------------------------------------
 @st.cache_resource
-def load_models():
-    translator = pipeline("translation", model="facebook/m2m100_418M")
-    return translator
+def load_translator():
+    return pipeline("translation", model="facebook/m2m100_418M")
 
-translator = load_models()
+translator = load_translator()
 
-# ---------------- SPOKEN TAMIL RULES ----------------
-def spoken_tamil(text):
-    rules = {
-        "நான்": "நா",
-        "உங்களை": "உங்க",
-        "உங்களுக்கு": "உங்க",
-        "அழைப்பேன்": "கால் பண்ணுறேன்",
-        "தகவல்": "விஷயம்",
-        "அனுப்புவேன்": "அனுப்பிடுறேன்",
-        "செல்லவும்": "போங்க",
-        "இருக்கிறது": "இருக்கு",
-        "உடனடியாக": "உடனே",
-        "நாளை": "நாளைக்கு"
-    }
-    for k, v in rules.items():
-        text = text.replace(k, v)
-    return text
+# --------------------------------------------------
+# SPOKEN TAMIL RULES
+# --------------------------------------------------
+spoken_tamil_map = {
+    "நான்": "நா",
+    "உங்களை": "உங்க",
+    "உங்களுக்கு": "உங்க",
+    "அழைப்பேன்": "கால் பண்ணுறேன்",
+    "அனுப்புவேன்": "அனுப்பிடுறேன்",
+    "தகவல்": "விஷயம்",
+    "உடனடியாக": "உடனே",
+    "இருக்கிறது": "இருக்கு",
+    "நாளை": "நாளைக்கு"
+}
 
-# ---------------- SIMPLE ENGLISH REWRITE ----------------
-def simple_english(text):
-    replacements = {
-        "kindly": "please",
-        "ensure": "make sure",
-        "prior to": "before",
-        "assist": "help",
-        "purchase": "buy",
-        "utilize": "use",
-        "commence": "start",
-        "terminate": "end"
-    }
+# --------------------------------------------------
+# SIMPLE ENGLISH RULES
+# --------------------------------------------------
+simple_english_map = {
+    "kindly": "please",
+    "ensure": "make sure",
+    "prior to": "before",
+    "assist": "help",
+    "purchase": "buy",
+    "utilize": "use",
+    "commence": "start",
+    "terminate": "end"
+}
+
+# --------------------------------------------------
+# HELPER FUNCTIONS
+# --------------------------------------------------
+def highlight_changes(original, modified, replacements):
+    result = modified
     for k, v in replacements.items():
-        text = text.replace(k, v)
-    return text
+        if v in result:
+            result = result.replace(v, f"<span class='highlight'>{v}</span>")
+    return result
 
-# ---------------- TRANSLATION ----------------
-def translate_text(text, target_lang):
-    if target_lang == "English":
-        translated = translator(text, src_lang="auto", tgt_lang="en")[0]["translation_text"]
-        return simple_english(translated)
-    else:
-        translated = translator(text, src_lang="auto", tgt_lang="ta")[0]["translation_text"]
-        return spoken_tamil(translated)
+def chunk_text(text, size=300):
+    sentences = re.split(r'(?<=[.!?]) +', text)
+    chunks, current = [], ""
+    for s in sentences:
+        if len(current) + len(s) <= size:
+            current += " " + s
+        else:
+            chunks.append(current)
+            current = s
+    chunks.append(current)
+    return chunks
 
-# ---------------- SPEECH TO TEXT ----------------
-def speech_to_text():
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎙️ Listening...")
-        audio = r.listen(source)
-    try:
-        return r.recognize_google(audio)
-    except:
-        return ""
+def translate_chunks(text, target):
+    chunks = chunk_text(text)
+    outputs = []
+    for c in chunks:
+        out = translator(c, src_lang="auto", tgt_lang=target)[0]["translation_text"]
+        outputs.append(out)
+    return " ".join(outputs)
 
-# ---------------- IMAGE TO TEXT ----------------
-def image_to_text(img):
-    return pytesseract.image_to_string(img)
-
-# ---------------- PDF GENERATOR ----------------
-def generate_pdf(input_text, output_text):
+# --------------------------------------------------
+# PDF GENERATION
+# --------------------------------------------------
+def create_pdf(input_text, output_text, in_lang, out_lang):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
 
-    pdf.multi_cell(0, 8, "INPUT:\n" + input_text)
+    pdf.cell(0, 10, "Smart Tamil–English Translator", ln=True)
+    pdf.cell(0, 10, f"Date: {datetime.datetime.now()}", ln=True)
     pdf.ln(5)
+
+    pdf.cell(0, 10, f"{in_lang} → {out_lang}", ln=True)
+    pdf.ln(5)
+
+    pdf.multi_cell(0, 8, "INPUT:\n" + input_text)
+    pdf.ln(4)
     pdf.multi_cell(0, 8, "OUTPUT:\n" + output_text)
 
     file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf.output(file.name)
     return file.name
 
-# ---------------- UI SECTIONS ----------------
-st.subheader("📥 Choose Input Type")
-input_type = st.radio("", ["📝 Text", "🎙️ Voice", "🖼️ Image"], horizontal=True)
+# --------------------------------------------------
+# INPUT SECTION
+# --------------------------------------------------
+st.markdown("<div class='block'>", unsafe_allow_html=True)
+input_text = st.text_area("📝 Enter text in ANY language")
+st.markdown("</div>", unsafe_allow_html=True)
 
-st.subheader("🌐 Choose Output Language")
-output_lang = st.radio("", ["Tamil", "English"], horizontal=True)
+# --------------------------------------------------
+# OUTPUT LANGUAGE
+# --------------------------------------------------
+output_lang = st.radio("🌐 Select Output Language", ["Tamil", "English"], horizontal=True)
 
-input_text = ""
-
-# -------- TEXT INPUT --------
-if input_type == "📝 Text":
-    input_text = st.text_area("✍️ Enter text in any language")
-
-# -------- VOICE INPUT --------
-elif input_type == "🎙️ Voice":
-    if st.button("🎤 Record Voice"):
-        input_text = speech_to_text()
-        st.success("Recognized Text:")
-        st.write(input_text)
-
-# -------- IMAGE INPUT --------
-elif input_type == "🖼️ Image":
-    img = st.file_uploader("📷 Upload Image", type=["png", "jpg", "jpeg"])
-    if img:
-        image = Image.open(img)
-        st.image(image, width=300)
-        input_text = image_to_text(image)
-
-# ---------------- PROCESS ----------------
+# --------------------------------------------------
+# PROCESS
+# --------------------------------------------------
 if st.button("✨ Convert"):
     if input_text.strip() == "":
-        st.warning("Please provide input")
+        st.warning("Please enter text")
     else:
-        output_text = translate_text(input_text, output_lang)
+        detected_lang = detect(input_text)
+        st.info(f"🌐 Detected Input Language: {detected_lang}")
 
+        # TRANSLATION
+        if output_lang == "Tamil":
+            translated = translate_chunks(input_text, "ta")
+            final_output = translated
+            for k, v in spoken_tamil_map.items():
+                final_output = final_output.replace(k, v)
+            highlighted = highlight_changes(translated, final_output, spoken_tamil_map)
+
+        else:
+            translated = translate_chunks(input_text, "en")
+            final_output = translated
+            for k, v in simple_english_map.items():
+                final_output = final_output.replace(k, v)
+            highlighted = highlight_changes(translated, final_output, simple_english_map)
+
+        # OUTPUT DISPLAY
+        st.markdown("<div class='block'>", unsafe_allow_html=True)
         st.subheader("📤 Output")
-        st.success(output_text)
+        st.markdown(highlighted, unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        # ----- AUDIO OUTPUT -----
-        tts = gTTS(output_text, lang="ta" if output_lang == "Tamil" else "en")
+        # AUDIO OUTPUT
+        tts = gTTS(final_output, lang="ta" if output_lang == "Tamil" else "en")
         audio_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
         tts.save(audio_file.name)
         st.audio(audio_file.name)
 
-        # ----- PDF DOWNLOAD -----
-        pdf_path = generate_pdf(input_text, output_text)
+        # PDF DOWNLOAD
+        pdf_path = create_pdf(input_text, final_output, detected_lang, output_lang)
         with open(pdf_path, "rb") as f:
-            st.download_button("📄 Download PDF", f, file_name="translation.pdf")
+            st.download_button("📄 Download PDF", f, file_name="output.pdf")
 
-        # ----- VOICE DOWNLOAD -----
-        with open(audio_file.name, "rb") as f:
-            st.download_button("🔊 Download Voice Output", f, file_name="output.mp3")
+        # FEEDBACK
+        st.markdown("### 🗳️ Feedback")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("👍 Easy to understand"):
+                st.success("Thank you for your feedback!")
+        with col2:
+            if st.button("👎 Needs improvement"):
+                st.success("Thank you! We’ll improve it.")
