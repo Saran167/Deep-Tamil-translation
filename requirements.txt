@@ -1,4 +1,8 @@
-streamlit==1.53.1
-langdetect==1.0.9
-gtts==2.5.4
-fpdf2==2.7.8
+streamlit
+googletrans==4.0.0-rc1
+langdetect
+gtts
+SpeechRecognition
+pytesseract
+Pillow
+fpdf
