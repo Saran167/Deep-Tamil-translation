@@ -1,17 +1,15 @@
 import streamlit as st
 import speech_recognition as sr
-from googletrans import Translator
+from deep_translator import GoogleTranslator
 from langdetect import detect
 from gtts import gTTS
 from fpdf import FPDF
 from PIL import Image
 import pytesseract
-import os
 import tempfile
 
 # ---------------- CONFIG ----------------
-st.set_page_config(page_title="Multilingual → Tamil & English", layout="wide")
-translator = Translator()
+st.set_page_config(page_title="Deep Tamil Translator", layout="wide")
 
 # ---------------- FUNCTIONS ----------------
 def detect_language(text):
@@ -20,123 +18,110 @@ def detect_language(text):
     except:
         return "unknown"
 
-def chunk_text(text, max_len=4500):
-    return [text[i:i+max_len] for i in range(0, len(text), max_len)]
+def chunk_text(text, size=4500):
+    return [text[i:i+size] for i in range(0, len(text), size)]
 
-def translate_text(text, target_lang):
-    chunks = chunk_text(text)
-    final_text = ""
-    for chunk in chunks:
-        translated = translator.translate(chunk, dest=target_lang)
-        final_text += translated.text + " "
-    return final_text.strip()
+def translate_text(text, target):
+    translator = GoogleTranslator(source="auto", target=target)
+    output = ""
+    for chunk in chunk_text(text):
+        output += translator.translate(chunk) + " "
+    return output.strip()
 
 def improve_tamil(text):
-    replacements = {
+    rules = {
         "நான் இருக்கிறேன்": "நான் உள்ளேன்",
         "எனக்கு தெரியும்": "எனக்குத் தெரியும்",
-        "மிகவும் நல்லது": "மிகச் சிறந்தது"
+        "மிகவும் நல்லது": "மிகச் சிறந்தது",
+        "நீங்கள் எப்படி இருக்கிறீர்கள்": "நீங்கள் எப்படி உள்ளீர்கள்"
     }
-    for k, v in replacements.items():
+    for k, v in rules.items():
         text = text.replace(k, v)
     return text
 
 def simple_english(text):
-    simplified = translator.translate(text, dest="en").text
+    simplified = GoogleTranslator(source="auto", target="en").translate(text)
     return simplified
 
 def text_to_voice(text, lang):
     tts = gTTS(text=text, lang=lang)
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
-    tts.save(temp_file.name)
-    return temp_file.name
+    file = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    tts.save(file.name)
+    return file.name
 
-def create_pdf(text):
+def create_pdf(input_text, output_text):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_font("Arial", size=12)
-    for line in text.split("\n"):
-        pdf.multi_cell(0, 8, line)
+    pdf.multi_cell(0, 8, "INPUT:\n" + input_text + "\n\nOUTPUT:\n" + output_text)
     file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
     pdf.output(file.name)
     return file.name
 
-def image_to_text(image):
-    return pytesseract.image_to_string(image)
+def image_to_text(img):
+    return pytesseract.image_to_string(img)
 
 # ---------------- UI ----------------
-st.title("🌐 Multilingual Input → Tamil & English Output")
+st.title("🌐 Any Language → Tamil / Simple English")
 
-st.markdown("### 🔹 Step 1: Choose Input Method")
-
-input_mode = st.radio("", ["Text Input", "Voice Input", "Image Upload"])
+input_mode = st.radio("Choose Input Type", ["Text", "Voice", "Image"])
 
 input_text = ""
 
-# -------- TEXT INPUT --------
-if input_mode == "Text Input":
-    input_text = st.text_area("📝 Enter text (Any Language)", height=200)
+# TEXT INPUT
+if input_mode == "Text":
+    input_text = st.text_area("Enter text", height=200)
 
-# -------- VOICE INPUT --------
-elif input_mode == "Voice Input":
-    st.info("🎤 Record your voice and upload audio file")
-    audio_file = st.file_uploader("Upload Audio (.wav)", type=["wav"])
-    if audio_file:
+# VOICE INPUT
+elif input_mode == "Voice":
+    audio = st.file_uploader("Upload WAV audio", type=["wav"])
+    if audio:
         r = sr.Recognizer()
-        with sr.AudioFile(audio_file) as source:
-            audio = r.record(source)
-        input_text = r.recognize_google(audio)
+        with sr.AudioFile(audio) as source:
+            input_text = r.recognize_google(r.record(source))
         st.success("Voice converted to text")
         st.write(input_text)
 
-# -------- IMAGE INPUT --------
-elif input_mode == "Image Upload":
-    image_file = st.file_uploader("📷 Upload Image", type=["png", "jpg", "jpeg"])
-    if image_file:
-        img = Image.open(image_file)
+# IMAGE INPUT
+elif input_mode == "Image":
+    img_file = st.file_uploader("Upload image", type=["png", "jpg", "jpeg"])
+    if img_file:
+        img = Image.open(img_file)
         input_text = image_to_text(img)
         st.success("Image converted to text")
         st.write(input_text)
 
-# ---------------- PROCESS ----------------
+# PROCESS
 if input_text:
-    detected_lang = detect_language(input_text)
-    st.markdown(f"### 🔍 Detected Language: **{detected_lang.upper()}**")
+    lang = detect_language(input_text)
+    st.info(f"Detected language: {lang.upper()}")
 
-    st.markdown("### 🔹 Step 2: Output Language")
-    output_lang = st.selectbox("", ["Tamil", "English"])
+    output_lang = st.selectbox("Select Output Language", ["Tamil", "English"])
 
-    if st.button("🔄 Translate"):
+    if st.button("Translate"):
         if output_lang == "Tamil":
-            translated = translate_text(input_text, "ta")
-            translated = improve_tamil(translated)
+            result = improve_tamil(translate_text(input_text, "ta"))
             lang_code = "ta"
         else:
-            translated = simple_english(input_text)
+            result = simple_english(input_text)
             lang_code = "en"
 
-        st.markdown("## ✅ Output Text")
-        st.success(translated)
-
-        # -------- OUTPUT OPTIONS --------
-        st.markdown("### 🔹 Step 3: Output Options")
+        st.subheader("Output")
+        st.success(result)
 
         col1, col2 = st.columns(2)
 
         with col1:
-            if st.button("🔊 Generate Voice"):
-                audio_path = text_to_voice(translated, lang_code)
+            if st.button("🔊 Voice Output"):
+                audio_path = text_to_voice(result, lang_code)
                 st.audio(audio_path)
-                st.download_button("⬇ Download Voice", open(audio_path, "rb"), file_name="output.mp3")
+                st.download_button("Download Voice", open(audio_path, "rb"), "output.mp3")
 
         with col2:
-            if st.button("📄 Generate PDF"):
-                pdf_path = create_pdf(translated)
-                st.download_button("⬇ Download PDF", open(pdf_path, "rb"), file_name="output.pdf")
+            if st.button("📄 Download PDF"):
+                pdf_path = create_pdf(input_text, result)
+                st.download_button("Download PDF", open(pdf_path, "rb"), "output.pdf")
 
-        # -------- FEEDBACK --------
-        st.markdown("### 🙏 Feedback")
-        fb1, fb2 = st.columns(2)
-        fb1.button("👍 Helpful")
-        fb2.button("👎 Not Helpful")
+        st.markdown("### Feedback")
+        st.button("👍 Helpful")
+        st.button("👎 Not Helpful")
