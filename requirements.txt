@@ -1,8 +1,10 @@
 streamlit
+streamlit-webrtc
 deep-translator
+SpeechRecognition
 langdetect
 gtts
-SpeechRecognition
 pytesseract
 Pillow
 fpdf
+av
