@@ -213,23 +213,6 @@ if 'feedback' not in st.session_state:
     st.session_state.feedback = []
 
 # -------------------- FUNCTIONS --------------------
-def speech_to_text():
-    """Your original speech recognition function - NOT CHANGED"""
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎤 Speak now... Listening...")
-        audio = r.listen(source)
-    
-    try:
-        text = r.recognize_google(audio)
-        return text
-    except sr.UnknownValueError:
-        st.error("Could not understand audio")
-        return None
-    except sr.RequestError as e:
-        st.error(f"Could not request results; {e}")
-        return None
-
 def detect_language(text):
     """Detect input language"""
     try:
@@ -238,7 +221,7 @@ def detect_language(text):
             'ta': 'Tamil', 'en': 'English', 'hi': 'Hindi', 'ml': 'Malayalam',
             'te': 'Telugu', 'kn': 'Kannada', 'fr': 'French', 'es': 'Spanish',
             'de': 'German', 'ja': 'Japanese', 'ko': 'Korean', 'zh-cn': 'Chinese',
-            'ru': 'Russian', 'ar': 'Arabic'
+            'ru': 'Russian', 'ar': 'Arabic', 'it': 'Italian', 'pt': 'Portuguese'
         }
         return lang_map.get(lang_code, f"Language ({lang_code})")
     except Exception as e:
@@ -264,7 +247,6 @@ def translate_to_english(text):
 
 def simplify_english(text):
     """Simplify English text for better understanding"""
-    # Simple word replacements
     simplifications = {
         "utilize": "use",
         "facilitate": "help", 
@@ -297,7 +279,9 @@ def improve_tamil_text(text):
         "அறிய": "🔍அறிய🔍",
         "புரிந்து": "💡புரிந்து💡",
         "கிடைக்கும்": "✅கிடைக்கும்✅",
-        "உதவும்": "🤝உதவும்🤝"
+        "உதவும்": "🤝உதவும்🤝",
+        "சிறந்த": "🏆சிறந்த🏆",
+        "வேகமாக": "⚡வேகமாக⚡"
     }
     
     for phrase, improved in improved_phrases.items():
@@ -305,52 +289,13 @@ def improve_tamil_text(text):
     
     return text
 
-def chunk_text(text, max_length=500):
-    """Split long text into chunks for better processing"""
-    words = text.split()
-    chunks = []
-    current_chunk = []
-    current_length = 0
-    
-    for word in words:
-        if current_length + len(word) + 1 <= max_length:
-            current_chunk.append(word)
-            current_length += len(word) + 1
-        else:
-            chunks.append(' '.join(current_chunk))
-            current_chunk = [word]
-            current_length = len(word)
-    
-    if current_chunk:
-        chunks.append(' '.join(current_chunk))
-    
-    return chunks
-
 def tamil_voice_output(text):
     """Generate Tamil voice output"""
     try:
-        chunks = chunk_text(text, max_length=100)
-        temp_files = []
-        
-        for i, chunk in enumerate(chunks):
-            if chunk.strip():
-                tts = gTTS(text=chunk, lang='ta', slow=False)
-                temp_file = f"temp_tamil_{i}_{uuid.uuid4().hex}.mp3"
-                tts.save(temp_file)
-                temp_files.append(temp_file)
-        
-        # Combine files
-        if temp_files:
-            final_filename = f"tamil_{uuid.uuid4().hex}.mp3"
-            with open(final_filename, 'wb') as outfile:
-                for temp_file in temp_files:
-                    with open(temp_file, 'rb') as infile:
-                        outfile.write(infile.read())
-                    try:
-                        os.unlink(temp_file)
-                    except:
-                        pass
-            return final_filename
+        tts = gTTS(text=text, lang='ta', slow=False)
+        filename = f"tamil_{uuid.uuid4().hex}.mp3"
+        tts.save(filename)
+        return filename
     except Exception as e:
         st.error(f"Voice generation error: {str(e)}")
     return None
@@ -486,36 +431,55 @@ with tab1:
     input_text = st.text_area(
         "Type or paste your text (paragraphs supported):",
         height=150,
-        help="You can enter text in any language - long paragraphs are supported"
+        help="You can enter text in any language - long paragraphs are supported",
+        key="text_input_main"
     )
     
     if st.button("Translate Text", key="text_translate", use_container_width=True):
-        if input_text:
+        if input_text.strip():
             detected_language = detect_language(input_text)
             st.session_state.input_text = input_text
             st.session_state.detected_language = detected_language
+            st.session_state.translation_ready = True
         else:
             st.warning("Please enter some text to translate")
 
 with tab2:
-    st.markdown("### 🎤 Voice Input")
-    st.markdown("Click below to start recording. Speak in any language.")
+    st.markdown("### 🎤 Voice Input (Direct Mic)")
     
-    if st.button("Start Recording", key="voice_record", use_container_width=True):
-        with st.spinner("Listening... Please speak now..."):
-            voice_text = speech_to_text()
-            if voice_text:
-                input_text = voice_text
-                detected_language = detect_language(voice_text)
-                st.session_state.input_text = input_text
-                st.session_state.detected_language = detected_language
-                st.success(f"✅ Recognized: {voice_text[:200]}...")
-            else:
-                st.error("Could not recognize speech. Please try again.")
+    # Add your EXACT voice input code here
+    r = sr.Recognizer()
+    
+    if st.button("Start Speaking", key="voice_speak", use_container_width=True):
+        with sr.Microphone() as source:
+            st.info("Speak now...")
+            r.adjust_for_ambient_noise(source, duration=0.5)
+            audio = r.listen(source)
+
+        try:
+            voice_text = r.recognize_google(audio)
+            st.success("✅ Voice converted to text")
+            
+            # Store the voice text
+            input_text = voice_text
+            detected_language = detect_language(voice_text)
+            
+            # Show the recognized text
+            st.markdown(f'<div class="success-box">🎤 <b>Recognized Speech:</b> {voice_text}</div>', unsafe_allow_html=True)
+            
+            # Store in session state for translation
+            st.session_state.input_text = voice_text
+            st.session_state.detected_language = detected_language
+            st.session_state.translation_ready = True
+            
+        except sr.UnknownValueError:
+            st.error("Sorry, could not understand the audio")
+        except sr.RequestError:
+            st.error("Speech Recognition service error")
 
 with tab3:
     st.markdown("### 🖼️ Upload Image with Text")
-    uploaded_file = st.file_uploader("Choose an image file (PNG, JPG, JPEG)", type=['png', 'jpg', 'jpeg'])
+    uploaded_file = st.file_uploader("Choose an image file (PNG, JPG, JPEG)", type=['png', 'jpg', 'jpeg'], key="image_uploader")
     
     if uploaded_file is not None:
         col_img, col_info = st.columns([2, 1])
@@ -531,14 +495,15 @@ with tab3:
                         detected_language = detect_language(extracted_text)
                         st.session_state.input_text = input_text
                         st.session_state.detected_language = detected_language
+                        st.session_state.translation_ready = True
                         st.success(f"✅ Text extracted successfully!")
                     else:
                         st.error("Could not extract text from image. Please ensure the image contains clear text.")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# Check if we have input text from any method
-if 'input_text' in st.session_state and st.session_state.input_text:
+# Check if we have input text for translation
+if 'translation_ready' in st.session_state and st.session_state.translation_ready:
     input_text = st.session_state.input_text
     detected_language = st.session_state.detected_language
     
@@ -575,11 +540,11 @@ if 'input_text' in st.session_state and st.session_state.input_text:
         # Tamil voice button
         col_voice1, col_dl1 = st.columns(2)
         with col_voice1:
-            if st.button("🔊 Tamil Voice", key="tamil_voice", use_container_width=True):
+            if st.button("🔊 Listen Tamil", key="tamil_voice", use_container_width=True):
                 with st.spinner("Generating Tamil audio..."):
                     audio_file = tamil_voice_output(tamil_translation)
                     if audio_file:
-                        st.audio(audio_file, autoplay=True)
+                        st.audio(audio_file, autoplay=False)
                         try:
                             os.unlink(audio_file)
                         except:
@@ -598,11 +563,11 @@ if 'input_text' in st.session_state and st.session_state.input_text:
         # English voice button
         col_voice2, col_dl2 = st.columns(2)
         with col_voice2:
-            if st.button("🔊 English Voice", key="english_voice", use_container_width=True):
+            if st.button("🔊 Listen English", key="english_voice", use_container_width=True):
                 with st.spinner("Generating English audio..."):
                     audio_file = english_voice_output(english_translation)
                     if audio_file:
-                        st.audio(audio_file, autoplay=True)
+                        st.audio(audio_file, autoplay=False)
                         try:
                             os.unlink(audio_file)
                         except:
@@ -659,7 +624,7 @@ English Translation:
 {'-'*50}
 {english_translation}
 
-Note: ✨ symbols highlight improved Tamil translations
+Note: ✨⭐🎯 symbols highlight improved Tamil translations
 """
             st.download_button(
                 label="⬇️ Download Text",
@@ -734,16 +699,18 @@ st.markdown("""
     <hr style="border-color: rgba(255,255,255,0.2);">
     <h3 style="color: white;">🌐 Universal Language Translator</h3>
     <p><b>Any Language → Tamil + Simple English</b></p>
-    <div style="display: flex; justify-content: center; gap: 20px; margin: 15px 0;">
+    <div style="display: flex; justify-content: center; gap: 20px; margin: 15px 0; flex-wrap: wrap;">
         <span>✅ Multi-input Support</span>
         <span>✅ Language Detection</span>
         <span>✅ Enhanced Tamil</span>
         <span>✅ Simple English</span>
         <span>✅ Voice Output</span>
         <span>✅ PDF Export</span>
+        <span>✅ Image OCR</span>
+        <span>✅ Feedback System</span>
     </div>
     <p style="font-size: 0.9rem; color: rgba(255,255,255,0.6); margin-top: 20px;">
-        Supports long paragraphs • Highlighted improvements • User feedback • All languages supported
+        Supports long paragraphs • Highlighted improvements • All languages supported • Perfect for academic projects
     </p>
 </div>
 """, unsafe_allow_html=True)
