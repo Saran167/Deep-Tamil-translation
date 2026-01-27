@@ -9,6 +9,8 @@ import uuid
 from PIL import Image
 import pytesseract
 import datetime
+import tempfile
+import io
 
 # -------------------- PAGE CONFIG --------------------
 st.set_page_config(
@@ -197,11 +199,22 @@ st.markdown("""
         margin: 15px 0;
     }
     
-    /* Feedback buttons container */
-    .feedback-container {
-        display: flex;
-        gap: 10px;
-        margin-top: 20px;
+    .warning-box {
+        background: rgba(255, 193, 7, 0.1);
+        padding: 15px;
+        border-radius: 10px;
+        border-left: 5px solid #ffc107;
+        margin: 15px 0;
+    }
+    
+    /* Audio upload box */
+    .audio-upload-box {
+        background: rgba(54, 209, 220, 0.1);
+        padding: 20px;
+        border-radius: 15px;
+        border: 2px dashed #36D1DC;
+        text-align: center;
+        margin: 20px 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -211,6 +224,8 @@ if 'translations' not in st.session_state:
     st.session_state.translations = []
 if 'feedback' not in st.session_state:
     st.session_state.feedback = []
+if 'voice_text' not in st.session_state:
+    st.session_state.voice_text = ""
 
 # -------------------- FUNCTIONS --------------------
 def detect_language(text):
@@ -367,6 +382,27 @@ def extract_text_from_image(image_file):
         st.error(f"OCR Error: {str(e)}")
         return None
 
+def process_audio_file(audio_file):
+    """Process uploaded audio file for speech recognition"""
+    try:
+        # Save the uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+            tmp_file.write(audio_file.read())
+            tmp_file_path = tmp_file.name
+        
+        # Use speech recognition on the audio file
+        r = sr.Recognizer()
+        with sr.AudioFile(tmp_file_path) as source:
+            audio = r.record(source)
+            text = r.recognize_google(audio)
+        
+        # Clean up temp file
+        os.unlink(tmp_file_path)
+        return text
+    except Exception as e:
+        st.error(f"Error processing audio: {str(e)}")
+        return None
+
 # -------------------- MAIN INTERFACE --------------------
 st.markdown('<div class="main-title">🌐 Universal Language Translator</div>', unsafe_allow_html=True)
 st.markdown('<p style="text-align: center; color: rgba(255,255,255,0.9); font-size: 1.2rem;">Any Language → Tamil & Simple English with Enhanced Features</p>', unsafe_allow_html=True)
@@ -445,86 +481,80 @@ with tab1:
             st.warning("Please enter some text to translate")
 
 with tab2:
-    st.markdown("### 🎤 Voice Input (Direct Microphone)")
+    st.markdown("### 🎤 Voice Input Options")
     
-    # Initialize speech recognizer
-    r = sr.Recognizer()
+    # Option 1: Audio file upload
+    st.markdown('<div class="audio-upload-box">', unsafe_allow_html=True)
+    st.markdown("#### Option 1: Upload Audio File")
+    st.markdown("Record your voice using any app (like Voice Recorder) and upload it")
     
-    # Microphone selection
-    st.markdown("#### Select Microphone:")
+    uploaded_audio = st.file_uploader(
+        "Choose audio file (WAV, MP3, M4A)",
+        type=['wav', 'mp3', 'm4a', 'ogg'],
+        key="audio_upload"
+    )
     
-    # Get available microphones
-    try:
-        import pyaudio
-        p = pyaudio.PyAudio()
-        mic_count = p.get_device_count()
-        mics = []
+    if uploaded_audio is not None:
+        # Show audio player
+        st.audio(uploaded_audio)
         
-        for i in range(mic_count):
-            device_info = p.get_device_info_by_index(i)
-            if device_info['maxInputChannels'] > 0:  # Input device
-                mics.append(f"{i}: {device_info['name']}")
-        
-        p.terminate()
-        
-        if mics:
-            selected_mic = st.selectbox("Choose your microphone:", mics, key="mic_select")
-            mic_index = int(selected_mic.split(":")[0])
-        else:
-            st.warning("No microphones found. Please connect a microphone.")
-            mic_index = 0
-            
-    except:
-        mic_index = 0
-        st.info("Using default microphone")
-    
-    # Voice input button
-    if st.button("🎤 Start Speaking", key="voice_speak", use_container_width=True):
-        with st.spinner("Listening through microphone..."):
-            try:
-                with sr.Microphone(device_index=mic_index) as source:
-                    st.info("🎤 Speak now in any language...")
-                    
-                    # Show recording indicator
-                    recording_placeholder = st.empty()
-                    recording_placeholder.markdown('<div style="text-align: center; padding: 20px; background: #ff6b6b; color: white; border-radius: 10px; font-weight: bold;">🔴 RECORDING... Speak now!</div>', unsafe_allow_html=True)
-                    
-                    # Adjust for ambient noise
-                    r.adjust_for_ambient_noise(source, duration=1)
-                    
-                    # Listen to audio
-                    audio = r.listen(source, timeout=10, phrase_time_limit=15)
-                    
-                    # Remove recording indicator
-                    recording_placeholder.empty()
-                    
-                    # Process audio
-                    st.info("🔄 Processing your speech...")
-                    voice_text = r.recognize_google(audio)
-                    
-                    # Success
-                    st.success("✅ Voice converted to text successfully!")
-                    
-                    # Display recognized text
-                    st.markdown(f'<div class="success-box">🎤 <b>Recognized Speech:</b><br>{voice_text}</div>', unsafe_allow_html=True)
-                    
-                    # Store for translation
-                    input_text = voice_text
-                    detected_language = detect_language(voice_text)
-                    
-                    st.session_state.input_text = voice_text
-                    st.session_state.detected_language = detected_language
+        if st.button("🎵 Transcribe Audio File", key="transcribe_audio", use_container_width=True):
+            with st.spinner("Converting audio to text..."):
+                transcribed_text = process_audio_file(uploaded_audio)
+                if transcribed_text:
+                    st.session_state.voice_text = transcribed_text
+                    st.session_state.input_text = transcribed_text
+                    st.session_state.detected_language = detect_language(transcribed_text)
                     st.session_state.translation_ready = True
-                    
-            except sr.WaitTimeoutError:
-                st.error("⏰ No speech detected. Please try again.")
-            except sr.UnknownValueError:
-                st.error("🎤 Could not understand the audio. Please speak clearly.")
-            except sr.RequestError as e:
-                st.error(f"🌐 Speech recognition service error: {e}")
-            except Exception as e:
-                st.error(f"❌ Error: {str(e)}")
-                st.info("💡 Tip: Make sure your microphone is connected and working properly.")
+                    st.success(f"✅ Transcribed: {transcribed_text[:200]}...")
+                else:
+                    st.error("Could not transcribe audio. Please try a clearer recording.")
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    # Option 2: Text simulation
+    st.markdown("#### Option 2: Type Your Speech")
+    st.markdown("Type what you would say into the microphone")
+    
+    simulated_voice = st.text_area(
+        "Enter your speech text here:",
+        height=100,
+        key="simulated_voice",
+        placeholder="Type what you want to translate..."
+    )
+    
+    if st.button("🎤 Use as Voice Input", key="use_simulated", use_container_width=True):
+        if simulated_voice.strip():
+            st.session_state.input_text = simulated_voice
+            st.session_state.detected_language = detect_language(simulated_voice)
+            st.session_state.translation_ready = True
+            st.success("✅ Voice input simulated successfully!")
+        else:
+            st.warning("Please enter some text")
+    
+    # Option 3: Sample phrases
+    st.markdown("#### Option 3: Try Sample Phrases")
+    col_s1, col_s2, col_s3 = st.columns(3)
+    
+    with col_s1:
+        if st.button("Hello, how are you?", key="sample1", use_container_width=True):
+            st.session_state.input_text = "Hello, how are you today?"
+            st.session_state.detected_language = "English"
+            st.session_state.translation_ready = True
+            st.rerun()
+    
+    with col_s2:
+        if st.button("I want to learn Tamil", key="sample2", use_container_width=True):
+            st.session_state.input_text = "I want to learn Tamil language"
+            st.session_state.detected_language = "English"
+            st.session_state.translation_ready = True
+            st.rerun()
+    
+    with col_s3:
+        if st.button("Translate this please", key="sample3", use_container_width=True):
+            st.session_state.input_text = "Please translate this sentence to Tamil"
+            st.session_state.detected_language = "English"
+            st.session_state.translation_ready = True
+            st.rerun()
 
 with tab3:
     st.markdown("### 🖼️ Upload Image with Text")
@@ -741,6 +771,21 @@ Note: ✨⭐🎯 symbols highlight improved Tamil translations
         "english": english_translation[:200],
         "language": detected_language
     })
+
+# Translation History (Collapsible)
+with st.expander("📚 View Translation History"):
+    if st.session_state.translations:
+        for i, trans in enumerate(reversed(st.session_state.translations[-5:]), 1):
+            st.markdown(f"""
+            **Translation {i}** ({trans['timestamp']})
+            - **Language:** {trans['language']}
+            - **Input:** {trans['input']}...
+            - **Tamil:** {trans['tamil']}...
+            - **English:** {trans['english']}...
+            ---
+            """)
+    else:
+        st.info("No translation history yet.")
 
 # Footer
 st.markdown("""
