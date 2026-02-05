@@ -174,15 +174,6 @@ if st.session_state.text.strip():
             st.audio(audio)
             os.remove(audio)
 
-    with col2:
-        if st.button("📄 Download PDF"):
-            pdf = create_pdf(original, simple_tamil)
-            with open(pdf, "rb") as f:
-                st.download_button("Download PDF", f, file_name=pdf)
-            os.remove(pdf)
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
 # -------------------- FOOTER --------------------
 st.markdown("""
 <hr>
