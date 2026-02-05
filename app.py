@@ -18,7 +18,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# -------------------- BASIC STYLING --------------------
+# -------------------- STYLING --------------------
 st.markdown("""
 <style>
 .stApp {
@@ -70,9 +70,8 @@ def simplify_tamil(text):
         "பிரதிபலிக்கிறது": "விளக்குகிறது",
         "முற்போக்கு": "முன்னேற்றம்",
         "செயற்கை நுண்ணறிவு": "மனிதனைப் போல சிந்திக்கும் கணினி தொழில்நுட்பம்",
-        "பயன்படுத்தப்படுகிறது": "பயன்படுத்தப்படுகிறது (உபயோகிக்கப்படுகிறது)"
+        "பயன்படுத்தப்படுகிறது": "உபயோகிக்கப்படுகிறது"
     }
-
     for hard, simple in simplification_map.items():
         text = text.replace(hard, simple)
     return text
@@ -100,21 +99,26 @@ def process_audio_file(audio_file):
     os.unlink(path)
     return text
 
+# ✅ UNICODE-SAFE PDF FUNCTION
 def create_pdf(original, tamil):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", "B", 16)
+
+    # Tamil Unicode font
+    pdf.add_font("DejaVu", "", "DejaVuSans.ttf", uni=True)
+    pdf.set_font("DejaVu", "", 14)
+
     pdf.cell(0, 10, "People-Centric Tamil Interpretation System", ln=True)
-    pdf.ln(5)
+    pdf.ln(6)
 
-    pdf.set_font("Arial", "", 12)
-    pdf.multi_cell(0, 8, f"Original Text:\n{original}")
-    pdf.ln(5)
-    pdf.multi_cell(0, 8, f"Simplified Tamil Output:\n{tamil}")
+    pdf.set_font("DejaVu", "", 12)
+    pdf.multi_cell(0, 8, "Original Text:\n" + original)
+    pdf.ln(4)
+    pdf.multi_cell(0, 8, "Simplified Tamil Output:\n" + tamil)
 
-    name = f"tamil_output_{uuid.uuid4().hex[:6]}.pdf"
-    pdf.output(name)
-    return name
+    filename = f"tamil_output_{uuid.uuid4().hex[:6]}.pdf"
+    pdf.output(filename)
+    return filename
 
 # -------------------- UI --------------------
 
@@ -128,12 +132,14 @@ st.markdown('<div class="card">', unsafe_allow_html=True)
 st.markdown('<div class="section-header">📥 Input Method</div>', unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs(["📝 Text", "🎤 Voice", "🖼️ Image"])
-input_text = ""
+
+if "text" not in st.session_state:
+    st.session_state.text = ""
 
 with tab1:
-    input_text = st.text_area("Enter text in any language", height=150)
+    txt = st.text_area("Enter text in any language", height=150)
     if st.button("Translate to Tamil"):
-        st.session_state.text = input_text
+        st.session_state.text = txt
 
 with tab2:
     audio = st.file_uploader("Upload audio file", type=["wav", "mp3"])
@@ -149,7 +155,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # -------------------- OUTPUT --------------------
 
-if "text" in st.session_state:
+if st.session_state.text.strip():
     original = st.session_state.text
     raw_tamil = translate_to_tamil(original)
     simple_tamil = simplify_tamil(raw_tamil)
@@ -160,16 +166,20 @@ if "text" in st.session_state:
     st.markdown("### 🔹 Simplified Tamil (Final Output)")
     st.markdown(f"<div class='output-box'>{simple_tamil}</div>", unsafe_allow_html=True)
 
-    if st.button("🔊 Listen Tamil"):
-        audio = tamil_voice_output(simple_tamil)
-        st.audio(audio)
-        os.remove(audio)
+    col1, col2 = st.columns(2)
 
-    if st.button("📄 Download PDF"):
-        pdf = create_pdf(original, simple_tamil)
-        with open(pdf, "rb") as f:
-            st.download_button("Download", f, file_name=pdf)
-        os.remove(pdf)
+    with col1:
+        if st.button("🔊 Listen Tamil"):
+            audio = tamil_voice_output(simple_tamil)
+            st.audio(audio)
+            os.remove(audio)
+
+    with col2:
+        if st.button("📄 Download PDF"):
+            pdf = create_pdf(original, simple_tamil)
+            with open(pdf, "rb") as f:
+                st.download_button("Download PDF", f, file_name=pdf)
+            os.remove(pdf)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -177,7 +187,8 @@ if "text" in st.session_state:
 st.markdown("""
 <hr>
 <p style="text-align:center;color:white;">
-Not a word-by-word translator.  
-<br>Meaning-aware, people-centric Tamil interpretation system.
+<b>Not a word-by-word translator.</b><br>
+Meaning-aware, people-centric Tamil interpretation system.<br>
+Designed for common users and extendable to archaeological Tamil.
 </p>
 """, unsafe_allow_html=True)
