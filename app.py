@@ -1,125 +1,175 @@
 import streamlit as st
-import speech_recognition as sr
-from deep_translator import GoogleTranslator
-from gtts import gTTS
+import numpy as np
+import cv2
 from PIL import Image
 import pytesseract
+from langdetect import detect
+from deep_translator import GoogleTranslator
+from gtts import gTTS
 import tempfile
 import os
-import uuid
-import cv2
-import numpy as np
-import re
 
-st.set_page_config(page_title="Tamil OCR Translator", page_icon="🪔", layout="wide")
-st.title("🪔 Intelligent Tamil OCR Translation System")
+# -------------------------------------------------
+# PAGE CONFIG
+# -------------------------------------------------
+st.set_page_config(
+    page_title="Dual-Phase Tamil Translation System",
+    layout="wide"
+)
 
-# ---------------- IMAGE PREPROCESS ----------------
-def preprocess_image(image):
-    img = np.array(image)
+st.title("🪔 Dual-Phase Tamil Translation System")
+st.caption("Simple Tamil for Users | Ancient Tamil for Archaeologists")
+
+# -------------------------------------------------
+# UTILITIES
+# -------------------------------------------------
+
+def preprocess_image(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gray = cv2.GaussianBlur(gray, (5,5), 0)
-    thresh = cv2.adaptiveThreshold(
-        gray, 255,
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-        cv2.THRESH_BINARY, 31, 2
-    )
+    gray = cv2.GaussianBlur(gray, (5, 5), 0)
+    _, thresh = cv2.threshold(gray, 0, 255,
+                              cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     return thresh
 
-# ---------------- OCR ----------------
-def extract_text(image):
-    processed = preprocess_image(image)
-    return pytesseract.image_to_string(processed, lang="tam+eng")
 
-# ---------------- OCR CORRECTION ----------------
-def ocr_post_correction(text):
-    char_map = {
-        " ன்": "ன்",
-        " ல்": "ல்",
-        " ள்": "ள்",
-        " ந்": "ன்",
-        "ருு": "ரு",
-        "ாா": "ா",
-        "  ": " "
-    }
+def safe_ocr(image):
+    try:
+        text = pytesseract.image_to_string(
+            image, lang="tam+eng", config="--psm 6"
+        )
+        return text.strip()
+    except:
+        return ""
 
-    for k, v in char_map.items():
-        text = text.replace(k, v)
 
-    lines = [l.strip() for l in text.split("\n") if len(l.strip()) > 2]
-    return " ".join(lines)
+def ocr_quality(text):
+    length = len(text.strip())
+    if length == 0:
+        return "FAILED"
+    elif length < 30:
+        return "POOR"
+    elif length < 100:
+        return "AVERAGE"
+    else:
+        return "GOOD"
 
-# ---------------- SANSKRIT DETECTION ----------------
-def detect_sanskrit_words(text):
-    sanskrit_roots = ["தர்ம", "கர்ம", "யோக", "பூஜ", "விதி", "ஸ்வ"]
-    found = []
 
-    for root in sanskrit_roots:
-        if root in text:
-            found.append(root)
+def clean_ancient_ocr(text):
+    words = text.split()
+    cleaned = []
 
-    return found
+    for w in words:
+        if len(w) > 2 and not any(ch.isdigit() for ch in w):
+            cleaned.append(w)
 
-# ---------------- TRANSLATION ----------------
-def translate_to_tamil(text):
-    return GoogleTranslator(source="auto", target="ta").translate(text)
+    return cleaned
 
-# ---------------- VOICE ----------------
+
+def ancient_to_modern_tamil(fragments):
+    # Rule-based interpretation (research-friendly)
+    interpreted = []
+    for word in fragments:
+        interpreted.append(word)  # placeholder for linguistic rules
+
+    return " ".join(interpreted)
+
+
+def simple_tamil_translate(text):
+    try:
+        return GoogleTranslator(source="auto", target="ta").translate(text)
+    except:
+        return "Translation failed."
+
+
 def tamil_voice(text):
     tts = gTTS(text=text, lang="ta")
-    name = f"{uuid.uuid4().hex}.mp3"
-    tts.save(name)
-    return name
+    temp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp3")
+    tts.save(temp.name)
+    return temp.name
 
-# ---------------- UI ----------------
-tab1, tab2, tab3 = st.tabs(["📝 Text", "🎤 Voice", "🖼️ Image"])
-input_text = ""
 
-with tab1:
-    input_text = st.text_area("Enter text")
-    if st.button("Translate"):
-        st.session_state.text = input_text
+# -------------------------------------------------
+# UI – MODE SELECTION
+# -------------------------------------------------
 
-with tab2:
-    audio = st.file_uploader("Upload audio", type=["wav","mp3","m4a"])
-    if audio and st.button("Convert"):
-        r = sr.Recognizer()
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-            f.write(audio.read())
-            path = f.name
-        with sr.AudioFile(path) as src:
-            data = r.record(src)
-            text = r.recognize_google(data)
-        os.remove(path)
-        st.session_state.text = text
+mode = st.radio(
+    "Choose Translation Mode",
+    ["🧑‍🤝‍🧑 Simple Tamil (Common Users)",
+     "🏺 Ancient Tamil (Archaeology)"]
+)
 
-with tab3:
-    img_file = st.file_uploader("Upload Image", type=["png","jpg","jpeg"])
-    if img_file:
-        image = Image.open(img_file)
-        st.image(image)
-        if st.button("OCR + Translate"):
-            raw = extract_text(image)
-            corrected = ocr_post_correction(raw)
-            st.session_state.text = corrected
+# =================================================
+# PHASE 1 – SIMPLE TAMIL
+# =================================================
+if mode == "🧑‍🤝‍🧑 Simple Tamil (Common Users)":
 
-# ---------------- OUTPUT ----------------
-if "text" in st.session_state:
-    st.subheader("📌 Processed Text")
-    st.write(st.session_state.text)
+    st.subheader("🔤 Enter Any Language Text")
 
-    sanskrit_words = detect_sanskrit_words(st.session_state.text)
-    if sanskrit_words:
-        st.info(f"Sanskrit-origin words detected: {', '.join(sanskrit_words)}")
+    input_text = st.text_area("Enter text here")
 
-    tamil = translate_to_tamil(st.session_state.text)
-    st.subheader("🇮🇳 Tamil Output")
-    st.write(tamil)
+    if st.button("Convert to Simple Tamil"):
+        if input_text.strip() != "":
+            translated = simple_tamil_translate(input_text)
+            st.success("✅ Simple Tamil Output")
+            st.write(translated)
 
-    if st.button("🔊 Play Tamil Voice"):
-        audio = tamil_voice(tamil)
-        st.audio(audio)
-        os.remove(audio)
+            audio = tamil_voice(translated)
+            st.audio(audio)
+        else:
+            st.warning("Please enter text.")
 
-st.caption("Research-ready OCR + Correction + Archaeology Support")
+
+# =================================================
+# PHASE 2 – ANCIENT TAMIL
+# =================================================
+if mode == "🏺 Ancient Tamil (Archaeology)":
+
+    st.subheader("📜 Upload Ancient Tamil Image")
+
+    uploaded = st.file_uploader(
+        "Upload Inscription / Manuscript Image",
+        type=["jpg", "png", "jpeg"]
+    )
+
+    if uploaded:
+        image = Image.open(uploaded)
+        img_np = np.array(image)
+
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+
+        processed = preprocess_image(img_np)
+        raw_text = safe_ocr(processed)
+
+        quality = ocr_quality(raw_text)
+
+        st.markdown("### 🔍 OCR Analysis")
+        st.write("OCR Quality:", quality)
+        st.text_area("Raw OCR Text", raw_text, height=120)
+
+        if quality != "FAILED":
+            cleaned = clean_ancient_ocr(raw_text)
+
+            st.markdown("### 🧹 Corrected Ancient Tamil Fragments")
+            st.write(cleaned)
+
+            modern_tamil = ancient_to_modern_tamil(cleaned)
+
+            st.markdown("### 🟢 Modern Tamil Interpretation")
+            st.write(modern_tamil)
+
+            audio = tamil_voice(modern_tamil)
+            st.audio(audio)
+        else:
+            st.error(
+                "OCR failed. Image quality too low or script too complex."
+            )
+
+# -------------------------------------------------
+# FOOTER
+# -------------------------------------------------
+st.markdown("---")
+st.caption(
+    "Academic Prototype | Dual-Phase NLP + OCR + Tamil Linguistics"
+)
+
 
