@@ -9,24 +9,16 @@ import os
 import uuid
 import cv2
 import numpy as np
+import re
 
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(
-    page_title="Tamil Intelligent Translator",
-    page_icon="🪔",
-    layout="wide"
-)
+st.set_page_config(page_title="Tamil OCR Translator", page_icon="🪔", layout="wide")
+st.title("🪔 Intelligent Tamil OCR Translation System")
 
-st.title("🪔 Intelligent Tamil Translation System")
-st.write("**Any Language → Simple, People-Friendly Tamil**")
-
-# ---------------- FUNCTIONS ----------------
-
+# ---------------- IMAGE PREPROCESS ----------------
 def preprocess_image(image):
-    """Improve image quality for OCR"""
     img = np.array(image)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gray = cv2.bilateralFilter(gray, 9, 75, 75)
+    gray = cv2.GaussianBlur(gray, (5,5), 0)
     thresh = cv2.adaptiveThreshold(
         gray, 255,
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
@@ -34,107 +26,100 @@ def preprocess_image(image):
     )
     return thresh
 
-
-def extract_text_from_image(image):
+# ---------------- OCR ----------------
+def extract_text(image):
     processed = preprocess_image(image)
-    text = pytesseract.image_to_string(processed, lang="tam+eng")
-    return text
+    return pytesseract.image_to_string(processed, lang="tam+eng")
 
-
-def ocr_correction(text):
-    """Basic OCR correction for ALL images"""
-    corrections = {
-        "0": "o",
-        "1": "l",
-        "|": "l",
-        "ﬁ": "fi",
-        "ﬂ": "fl",
-        "—": "-",
-        "_": " ",
+# ---------------- OCR CORRECTION ----------------
+def ocr_post_correction(text):
+    char_map = {
+        " ன்": "ன்",
+        " ல்": "ல்",
+        " ள்": "ள்",
+        " ந்": "ன்",
+        "ருு": "ரு",
+        "ாா": "ா",
         "  ": " "
     }
-    for wrong, right in corrections.items():
-        text = text.replace(wrong, right)
 
-    lines = [line.strip() for line in text.split("\n") if len(line.strip()) > 2]
+    for k, v in char_map.items():
+        text = text.replace(k, v)
+
+    lines = [l.strip() for l in text.split("\n") if len(l.strip()) > 2]
     return " ".join(lines)
 
+# ---------------- SANSKRIT DETECTION ----------------
+def detect_sanskrit_words(text):
+    sanskrit_roots = ["தர்ம", "கர்ம", "யோக", "பூஜ", "விதி", "ஸ்வ"]
+    found = []
 
-def translate_to_simple_tamil(text):
-    tamil = GoogleTranslator(source="auto", target="ta").translate(text)
-    return tamil
+    for root in sanskrit_roots:
+        if root in text:
+            found.append(root)
 
+    return found
 
+# ---------------- TRANSLATION ----------------
+def translate_to_tamil(text):
+    return GoogleTranslator(source="auto", target="ta").translate(text)
+
+# ---------------- VOICE ----------------
 def tamil_voice(text):
     tts = gTTS(text=text, lang="ta")
-    filename = f"tamil_{uuid.uuid4().hex}.mp3"
-    tts.save(filename)
-    return filename
+    name = f"{uuid.uuid4().hex}.mp3"
+    tts.save(name)
+    return name
 
-
-def speech_to_text(audio_file):
-    r = sr.Recognizer()
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        tmp.write(audio_file.read())
-        tmp_path = tmp.name
-
-    with sr.AudioFile(tmp_path) as source:
-        audio = r.record(source)
-        text = r.recognize_google(audio)
-
-    os.unlink(tmp_path)
-    return text
-
-# ---------------- INPUT UI ----------------
-
+# ---------------- UI ----------------
 tab1, tab2, tab3 = st.tabs(["📝 Text", "🎤 Voice", "🖼️ Image"])
-
 input_text = ""
 
-# -------- TEXT INPUT --------
 with tab1:
-    input_text = st.text_area("Enter text in any language", height=150)
-    if st.button("Translate Text"):
+    input_text = st.text_area("Enter text")
+    if st.button("Translate"):
         st.session_state.text = input_text
 
-# -------- VOICE INPUT --------
 with tab2:
-    audio = st.file_uploader("Upload audio file", type=["wav", "mp3", "m4a"])
-    if audio and st.button("Convert Voice"):
-        text = speech_to_text(audio)
+    audio = st.file_uploader("Upload audio", type=["wav","mp3","m4a"])
+    if audio and st.button("Convert"):
+        r = sr.Recognizer()
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+            f.write(audio.read())
+            path = f.name
+        with sr.AudioFile(path) as src:
+            data = r.record(src)
+            text = r.recognize_google(data)
+        os.remove(path)
         st.session_state.text = text
-        st.success(f"Recognized Text: {text}")
 
-# -------- IMAGE INPUT --------
 with tab3:
-    image_file = st.file_uploader("Upload image", type=["png", "jpg", "jpeg"])
-    if image_file:
-        image = Image.open(image_file)
-        st.image(image, caption="Uploaded Image")
-
-        if st.button("Extract & Translate"):
-            raw_text = extract_text_from_image(image)
-            corrected_text = ocr_correction(raw_text)
-            st.session_state.text = corrected_text
-            st.success("OCR + Correction Applied")
+    img_file = st.file_uploader("Upload Image", type=["png","jpg","jpeg"])
+    if img_file:
+        image = Image.open(img_file)
+        st.image(image)
+        if st.button("OCR + Translate"):
+            raw = extract_text(image)
+            corrected = ocr_post_correction(raw)
+            st.session_state.text = corrected
 
 # ---------------- OUTPUT ----------------
-
-if "text" in st.session_state and st.session_state.text.strip():
-    st.markdown("---")
-    st.subheader("📌 Extracted / Input Text")
+if "text" in st.session_state:
+    st.subheader("📌 Processed Text")
     st.write(st.session_state.text)
 
-    tamil = translate_to_simple_tamil(st.session_state.text)
+    sanskrit_words = detect_sanskrit_words(st.session_state.text)
+    if sanskrit_words:
+        st.info(f"Sanskrit-origin words detected: {', '.join(sanskrit_words)}")
 
-    st.subheader("🇮🇳 Tamil Output (People-Friendly)")
+    tamil = translate_to_tamil(st.session_state.text)
+    st.subheader("🇮🇳 Tamil Output")
     st.write(tamil)
 
     if st.button("🔊 Play Tamil Voice"):
-        audio_file = tamil_voice(tamil)
-        st.audio(audio_file)
-        os.remove(audio_file)
+        audio = tamil_voice(tamil)
+        st.audio(audio)
+        os.remove(audio)
 
-# ---------------- FOOTER ----------------
-st.markdown("---")
-st.caption("🔬 Research-Oriented Tamil Translation | OCR + Correction + Speech | Archaeology Ready")
+st.caption("Research-ready OCR + Correction + Archaeology Support")
+
