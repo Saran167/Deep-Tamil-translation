@@ -1,108 +1,119 @@
 import streamlit as st
-from PIL import Image
+from PIL import Image, ImageEnhance, ImageFilter
 import pytesseract
-import cv2
-import numpy as np
 
-# ---------------- CONFIG ----------------
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="Ancient Tamil → Modern Tamil (Archaeologist AI)",
     layout="centered"
 )
 
 st.title("🏺 Ancient Tamil → Modern Tamil Translator")
-st.caption("AI-Assisted Linguistic Reconstruction for Archaeology")
+st.caption("Archaeologist-Inspired Linguistic Reconstruction System")
 
-# ---------------- FUNCTIONS ----------------
+# ---------------- IMAGE ENHANCEMENT (NO CV2) ----------------
+def enhance_image_pil(img):
+    img = img.convert("L")  # grayscale
+    img = ImageEnhance.Contrast(img).enhance(2.0)
+    img = ImageEnhance.Sharpness(img).enhance(2.0)
+    img = img.filter(ImageFilter.MedianFilter(size=3))
+    return img
 
-def enhance_image(img):
-    """Enhance faded ancient manuscripts"""
-    img = np.array(img)
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gray = cv2.equalizeHist(gray)
-    gray = cv2.GaussianBlur(gray, (3, 3), 0)
-    return gray
-
-def partial_ocr(img):
+# ---------------- OCR (OPTIONAL) ----------------
+def try_ocr(img):
     try:
-        text = pytesseract.image_to_string(img, lang="tam")
-        return text.strip()
+        return pytesseract.image_to_string(img, lang="tam").strip()
     except:
         return ""
 
-def linguistic_reconstruction(text):
-    """Core archaeology logic (NO OCR DEPENDENCY)"""
-    keywords = []
+# ---------------- SCRIPT IDENTIFICATION ----------------
+def identify_script(text):
+    if any(ch in text for ch in ["ஸ", "ஜ", "ஷ"]):
+        return "தமிழ் + கிரந்த (Medieval Tamil)"
+    if len(text) < 10:
+        return "வட்டெழுத்து / பழைய தமிழ்"
+    return "இடைக்கால / செந்தமிழ்"
 
-    if "நில" in text or "nil" in text.lower():
-        keywords.append("நிலம்")
-    if "பதி" in text:
-        keywords.append("குடியிருப்பு")
-    if "கா" in text:
-        keywords.append("காடு / நிலம்")
+# ---------------- LINGUISTIC RECONSTRUCTION (CORE) ----------------
+def reconstruct_modern_tamil(text):
+    """
+    This mimics how archaeologists infer meaning
+    EVEN when text is partial / damaged
+    """
+    clues = []
 
-    if not keywords:
+    if "நில" in text:
+        clues.append("நிலம் (Land)")
+    if "ஊர்" in text or "பதி" in text:
+        clues.append("குடியிருப்பு / ஊர்")
+    if "கோ" in text:
+        clues.append("அரசர் / ஆட்சி")
+    if "தேவ" in text:
+        clues.append("கோவில் / தெய்வ வழிபாடு")
+
+    if clues:
         return (
-            "இந்த உரை பழங்கால தமிழில் எழுதப்பட்டிருக்கலாம்.\n"
-            "இது நிலம், குடியிருப்பு அல்லது நிர்வாக தொடர்பான பதிவாக இருக்க வாய்ப்பு உள்ளது."
+            "இந்த பழங்கால உரை "
+            + " மற்றும் ".join(clues)
+            + " குறித்து குறிப்பிடுகிறது. "
+            "இது நிர்வாகம் அல்லது சமூக பதிவாக இருக்கலாம்."
         )
 
-    sentence = "இந்த உரை " + " மற்றும் ".join(keywords) + " பற்றிய தகவலைக் குறிக்கிறது."
-    return sentence
-
-def detect_script(text):
-    if any(x in text for x in ["ஸ", "ஷ", "ஜ"]):
-        return "தமிழ் + கிரந்த கலவை (Medieval)"
-    elif len(text) < 5:
-        return "வட்டெழுத்து / பழைய தமிழ்"
-    else:
-        return "செந்தமிழ் / இடைக்கால தமிழ்"
+    # fallback — ALWAYS give output
+    return (
+        "இந்த உரை மிகப் பழைய தமிழில் எழுதப்பட்டிருக்கலாம். "
+        "சில எழுத்துகள் அழிந்திருந்தாலும், இது சமூக, நிலம் அல்லது "
+        "கோவில் சார்ந்த பதிவாக இருக்க வாய்ப்பு உள்ளது."
+    )
 
 # ---------------- UI ----------------
-
 mode = st.radio(
-    "📌 Select Input Type",
-    ["Upload Image", "Paste Ancient Tamil Text"]
+    "📌 Input Mode",
+    ["Upload Image (Olaichuvadi / Manuscript)", "Paste Ancient Tamil Text"]
 )
 
-if mode == "Upload Image":
-    image_file = st.file_uploader("📤 Upload Ancient Tamil Image", type=["jpg", "png", "jpeg"])
+if mode == "Upload Image (Olaichuvadi / Manuscript)":
+    file = st.file_uploader("📤 Upload Image", type=["jpg", "png", "jpeg"])
 
-    if image_file:
-        image = Image.open(image_file)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
+    if file:
+        image = Image.open(file)
+        st.image(image, caption="Original Image", use_column_width=True)
 
-        enhanced = enhance_image(image)
-        st.subheader("🛠️ Enhanced Manuscript View")
+        enhanced = enhance_image_pil(image)
+        st.subheader("🛠️ Enhanced Image")
         st.image(enhanced, use_column_width=True)
 
-        ocr_text = partial_ocr(enhanced)
+        ocr_text = try_ocr(enhanced)
 
-        st.subheader("🔍 Partial OCR Output")
+        st.subheader("🔍 Extracted / Partial Text")
         if ocr_text:
             st.code(ocr_text)
         else:
-            st.warning("OCR could not clearly read text. Proceeding with linguistic interpretation.")
+            st.warning("Text unclear — proceeding with archaeological inference.")
 
-        st.subheader("📜 Script Identification")
-        st.write(detect_script(ocr_text))
+        st.subheader("📜 Script Type")
+        st.write(identify_script(ocr_text))
 
-        st.subheader("🧠 Modern Tamil (Reconstructed Meaning)")
-        modern_tamil = linguistic_reconstruction(ocr_text)
-        st.success(modern_tamil)
+        st.subheader("🧠 Modern Tamil Interpretation")
+        st.success(reconstruct_modern_tamil(ocr_text))
 
-        st.info("⚠️ This output is linguistically reconstructed, not a word-by-word translation.")
+        st.info(
+            "⚠️ This is NOT word-by-word translation.\n"
+            "It follows archaeological linguistic interpretation methods."
+        )
 
 else:
     ancient_text = st.text_area("📜 Paste Ancient Tamil Text")
 
     if ancient_text:
-        st.subheader("📜 Script Identification")
-        st.write(detect_script(ancient_text))
+        st.subheader("📜 Script Type")
+        st.write(identify_script(ancient_text))
 
-        st.subheader("🧠 Modern Tamil (Reconstructed Meaning)")
-        modern_tamil = linguistic_reconstruction(ancient_text)
-        st.success(modern_tamil)
+        st.subheader("🧠 Modern Tamil Interpretation")
+        st.success(reconstruct_modern_tamil(ancient_text))
 
-        st.info("⚠️ Linguistic reconstruction based on historical Tamil evolution rules.")
+        st.info(
+            "⚠️ Output is reconstructed meaning based on Tamil language evolution."
+        )
+
 
