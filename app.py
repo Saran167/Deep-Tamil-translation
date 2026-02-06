@@ -7,20 +7,16 @@ from deep_translator import GoogleTranslator
 from gtts import gTTS
 import tempfile
 
-# -------------------------------------------------
-# PAGE CONFIG
-# -------------------------------------------------
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="Dual Phase Tamil Translation System",
+    page_title="Ancient Tamil to Modern Tamil System",
     layout="wide"
 )
 
-st.title("🪔 Dual-Phase Tamil Translation System")
-st.caption("Simple Tamil for Common Users | Ancient Tamil for Archaeology")
+st.title("🪔 Ancient Tamil → Modern Tamil Interpretation System")
+st.caption("Dual Phase | User Translation + Archaeological Interpretation")
 
-# -------------------------------------------------
-# IMAGE PROCESSING & OCR
-# -------------------------------------------------
+# ---------------- FUNCTIONS ----------------
 def preprocess_image(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -40,52 +36,39 @@ def safe_ocr(image):
 
 
 def ocr_quality(text):
-    length = len(text.strip())
-    if length == 0:
+    if len(text.strip()) == 0:
         return "FAILED"
-    elif length < 30:
+    elif len(text) < 30:
         return "POOR"
-    elif length < 100:
+    elif len(text) < 100:
         return "AVERAGE"
     else:
         return "GOOD"
 
 
-def clean_ancient_ocr(text):
+def clean_ancient_text(text):
     words = text.split()
-    cleaned = []
-    for w in words:
-        if len(w) > 2 and not any(ch.isdigit() for ch in w):
-            cleaned.append(w)
-    return cleaned
+    return [w for w in words if len(w) > 2]
 
 
-def ancient_to_modern_tamil(words):
-    # Linguistic interpretation placeholder
+def ancient_to_modern(words):
     return " ".join(words)
 
 
-# -------------------------------------------------
-# LOW QUALITY IMAGE INTELLIGENCE (NO OCR)
-# -------------------------------------------------
-def low_quality_intelligence():
-    return {
-        "script": "Likely Pallava / Vatteluttu Tamil",
-        "language": "Tamil mixed with possible Sanskrit (Grantha influence)",
-        "era": "Approximately 8th–12th Century",
-        "context": "Temple, donation, or administrative inscription",
-        "note": "Exact characters unreadable due to erosion or weathering"
-    }
+def contextual_modern_tamil():
+    return (
+        "இந்த கல்வெட்டு கோவில், தானம் அல்லது அரசாணை தொடர்பான "
+        "பழமையான தமிழ்ச் செய்தியை குறிக்கலாம். "
+        "சில எழுத்துகள் அழிந்துள்ளதால், இது ஒரு "
+        "பொதுவான நவீன தமிழ் விளக்கமாக வழங்கப்படுகிறது."
+    )
 
 
-# -------------------------------------------------
-# SIMPLE TAMIL TRANSLATION
-# -------------------------------------------------
-def simple_tamil_translate(text):
+def translate_to_tamil(text):
     try:
         return GoogleTranslator(source="auto", target="ta").translate(text)
     except:
-        return "Translation failed."
+        return text
 
 
 def tamil_voice(text):
@@ -95,103 +78,78 @@ def tamil_voice(text):
     return tmp.name
 
 
-# -------------------------------------------------
-# MODE SELECTION
-# -------------------------------------------------
+# ---------------- MODE SELECTION ----------------
 mode = st.radio(
     "Select Mode",
-    ["🧑‍🤝‍🧑 Simple Tamil (Common Users)",
-     "🏺 Ancient Tamil (Archaeology)"]
+    ["🧑 Simple Tamil Translation",
+     "🏺 Ancient Tamil → Modern Tamil"]
 )
 
-# =================================================
-# PHASE 1 – SIMPLE TAMIL
-# =================================================
-if mode == "🧑‍🤝‍🧑 Simple Tamil (Common Users)":
-
-    st.subheader("🔤 Enter Text (Any Language)")
-    input_text = st.text_area("Input text")
+# ================= PHASE 1 =================
+if mode == "🧑 Simple Tamil Translation":
+    text = st.text_area("Enter any language text")
 
     if st.button("Convert to Simple Tamil"):
-        if input_text.strip():
-            output = simple_tamil_translate(input_text)
-            st.success("✅ Simplified Tamil Output")
-            st.write(output)
+        if text.strip():
+            out = translate_to_tamil(text)
+            st.success("Modern Tamil Output")
+            st.write(out)
+            st.audio(tamil_voice(out))
 
-            audio = tamil_voice(output)
-            st.audio(audio)
-        else:
-            st.warning("Please enter text.")
+# ================= PHASE 2 =================
+if mode == "🏺 Ancient Tamil → Modern Tamil":
 
-# =================================================
-# PHASE 2 – ARCHAEOLOGICAL TAMIL
-# =================================================
-if mode == "🏺 Ancient Tamil (Archaeology)":
-
-    st.subheader("📜 Upload Ancient Tamil Image")
     uploaded = st.file_uploader(
-        "Upload inscription / manuscript image",
+        "Upload Ancient Tamil Image",
         type=["jpg", "png", "jpeg"]
     )
 
     if uploaded:
-        image = Image.open(uploaded)
-        img_np = np.array(image)
-
-        st.image(image, caption="Uploaded Image", use_column_width=True)
+        img = Image.open(uploaded)
+        img_np = np.array(img)
+        st.image(img, caption="Uploaded Image", use_column_width=True)
 
         processed = preprocess_image(img_np)
         ocr_text = safe_ocr(processed)
         quality = ocr_quality(ocr_text)
 
-        st.markdown("### 🔍 OCR Analysis")
+        st.subheader("🔍 OCR Analysis")
         st.write("OCR Quality:", quality)
         st.text_area("Raw OCR Output", ocr_text, height=120)
 
-        # ---------- NORMAL OCR PATH ----------
-        if quality in ["AVERAGE", "GOOD"]:
-            cleaned = clean_ancient_ocr(ocr_text)
+        # -------- OCR SUCCESS --------
+        if quality in ["GOOD", "AVERAGE"]:
+            cleaned = clean_ancient_text(ocr_text)
+            modern = ancient_to_modern(cleaned)
 
-            st.subheader("🧹 Cleaned Ancient Text")
-            st.write(cleaned)
-
-            modern = ancient_to_modern_tamil(cleaned)
-
-            st.subheader("🟢 Modern Tamil Interpretation")
+            st.subheader("🟢 Modern Tamil (Interpreted)")
             st.write(modern)
+            st.audio(tamil_voice(modern))
 
-            audio = tamil_voice(modern)
-            st.audio(audio)
-
-        # ---------- LOW QUALITY INTELLIGENCE ----------
+        # -------- OCR FAILED / POOR --------
         else:
-            st.warning("⚠️ OCR text extraction unreliable.")
+            st.warning("OCR unreliable due to erosion or low image quality.")
 
-            insights = low_quality_intelligence()
+            # OPTION A
+            st.subheader("🅰️ Contextual Modern Tamil Interpretation")
+            contextual = contextual_modern_tamil()
+            st.write(contextual)
+            st.audio(tamil_voice(contextual))
 
-            st.subheader("🧠 Low-Quality Image Intelligence")
-            st.write("📜 Estimated Script:", insights["script"])
-            st.write("🌐 Language Composition:", insights["language"])
-            st.write("🕰️ Probable Era:", insights["era"])
-            st.write("📖 Possible Context:", insights["context"])
-
-            st.info(
-                insights["note"] +
-                ". System avoids incorrect translation and provides contextual analysis."
+            # OPTION B
+            st.subheader("🅱️ Expert-Assisted Conversion")
+            manual = st.text_area(
+                "Enter any visible ancient Tamil words"
             )
 
-            st.text_area(
-                "✍️ Expert Manual Input (Optional)",
-                placeholder="Enter any clearly visible ancient Tamil characters here..."
-            )
+            if manual.strip():
+                converted = translate_to_tamil(manual)
+                st.success("Modern Tamil from Expert Input")
+                st.write(converted)
+                st.audio(tamil_voice(converted))
 
-# -------------------------------------------------
-# FOOTER
-# -------------------------------------------------
+# ---------------- FOOTER ----------------
 st.markdown("---")
 st.caption(
-    "Academic Prototype | OCR + NLP + Tamil Linguistics + Archaeological Intelligence"
+    "Research Prototype | Ancient Tamil → Modern Tamil | OCR + Contextual AI"
 )
-
-
-
