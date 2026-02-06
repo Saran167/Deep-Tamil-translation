@@ -3,6 +3,5 @@ numpy
 pillow
 opencv-python-headless
 pytesseract
-langdetect
 deep-translator
 gtts
