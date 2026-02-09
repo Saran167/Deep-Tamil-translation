@@ -35,21 +35,6 @@ st.markdown("""
     margin-bottom: 2rem;
 }
 
-.phase-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    padding: 25px;
-    border-radius: 15px;
-    height: 100%;
-    transition: transform 0.3s;
-    cursor: pointer;
-}
-
-.phase-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-}
-
 .original-box {
     font-size: 1.4rem;
     color: #D35400;
@@ -88,11 +73,11 @@ st.markdown("""
     font-weight: bold;
     border: none;
     font-size: 16px;
+    width: 100%;
 }
 
 .stButton > button:hover {
     background: linear-gradient(135deg, #1B4F72 0%, #0C3D5B 100%);
-    transform: translateY(-2px);
 }
 
 .info-card {
@@ -103,41 +88,13 @@ st.markdown("""
     margin: 10px 0;
 }
 
-.warning-card {
-    background: #FFF3CD;
-    padding: 20px;
-    border-radius: 10px;
-    border-left: 5px solid #FFC107;
-    margin: 10px 0;
-}
-
-.success-card {
-    background: #D4EDDA;
-    padding: 20px;
-    border-radius: 10px;
-    border-left: 5px solid #28A745;
-    margin: 10px 0;
-}
-
-.tab-button {
-    text-align: center;
-    padding: 15px;
-    border: 2px solid #ddd;
-    border-radius: 10px;
-    margin: 5px;
-    cursor: pointer;
-    transition: all 0.3s;
-}
-
-.tab-button:hover {
-    border-color: #2E86AB;
-    background: #F0F8FF;
-}
-
-.tab-button.active {
-    border-color: #2E86AB;
-    background: #E6F3FF;
-    font-weight: bold;
+.phase-card {
+    background: white;
+    padding: 25px;
+    border-radius: 15px;
+    border: 2px solid #2E86AB;
+    margin: 15px 0;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
 
 .sidebar-header {
@@ -171,55 +128,11 @@ def detect_language_name(text):
     except:
         return 'Unknown'
 
-def translate_to_simple_tamil(text, source_lang='auto'):
+def translate_to_simple_tamil(text):
     """
     Translate any text to simple, understandable Tamil.
     Better than Google Translate by making it people-friendly.
     """
-    # Simple translation dictionary (for demo)
-    translation_dict = {
-        'education': 'கல்வி',
-        'knowledge': 'அறிவு',
-        'student': 'மாணவர்',
-        'teacher': 'ஆசிரியர்',
-        'school': 'பள்ளி',
-        'book': 'புத்தகம்',
-        'world': 'உலகம்',
-        'life': 'வாழ்க்கை',
-        'change': 'மாற்றம்',
-        'powerful': 'சக்தி வாய்ந்த',
-        'weapon': 'ஆயுதம்',
-        'important': 'முக்கியமான',
-        'simple': 'எளிமையான',
-        'tamil': 'தமிழ்',
-        'beautiful': 'அழகான',
-        'language': 'மொழி',
-        'learn': 'கற்றல்',
-        'understand': 'புரிந்து கொள்ள',
-        'help': 'உதவி',
-        'need': 'தேவை',
-        'success': 'வெற்றி',
-        'development': 'வளர்ச்சி',
-        'peace': 'சமாதானம்',
-        'love': 'காதல்',
-        'for': 'க்காக',
-        'to': 'க்கு',
-        'is': 'என்பது',
-        'the': '',
-        'a': '',
-        'an': '',
-        'and': 'மற்றும்',
-        'or': 'அல்லது',
-        'but': 'ஆனால்',
-        'most': 'மிகவும்',
-        'very': 'மிகவும்',
-        'more': 'மேலும்',
-        'can': 'முடியும்',
-        'should': 'வேண்டும்',
-        'will': 'போகிறது',
-        'must': 'கட்டாயம்',
-    }
-    
     # Google Translate-like output (formal Tamil)
     google_translate_outputs = {
         "Education is the most powerful weapon to change the world.": 
@@ -232,20 +145,40 @@ def translate_to_simple_tamil(text, source_lang='auto'):
             "மாணவர்கள் தினமும் கற்றல் வேண்டும்.",
         "Peace is important for development.": 
             "வளர்ச்சிக்கு சமாதானம் முக்கியமானது.",
+        "Learning new things is good for brain.":
+            "புதிய விஷயங்களைக் கற்றுக்கொள்வது மூளையிற்கு நல்லது.",
+        "Books are best friends.":
+            "புத்தகங்கள் சிறந்த நண்பர்கள்.",
     }
     
     # Check for exact matches
     if text in google_translate_outputs:
         formal_tamil = google_translate_outputs[text]
     else:
-        # Simple word-by-word translation for demo
+        # Simple translation dictionary
+        translation_dict = {
+            'education': 'கல்வி', 'knowledge': 'அறிவு', 'student': 'மாணவர்',
+            'teacher': 'ஆசிரியர்', 'school': 'பள்ளி', 'book': 'புத்தகம்',
+            'world': 'உலகம்', 'life': 'வாழ்க்கை', 'change': 'மாற்றம்',
+            'powerful': 'சக்தி வாய்ந்த', 'weapon': 'ஆயுதம்', 'important': 'முக்கியமான',
+            'simple': 'எளிமையான', 'tamil': 'தமிழ்', 'beautiful': 'அழகான',
+            'language': 'மொழி', 'learn': 'கற்றல்', 'understand': 'புரிந்து கொள்ள',
+            'help': 'உதவி', 'need': 'தேவை', 'success': 'வெற்றி',
+            'development': 'வளர்ச்சி', 'peace': 'சமாதானம்', 'love': 'காதல்',
+            'for': 'க்காக', 'to': 'க்கு', 'is': 'என்பது', 'the': '',
+            'a': '', 'an': '', 'and': 'மற்றும்', 'or': 'அல்லது',
+            'but': 'ஆனால்', 'most': 'மிகவும்', 'very': 'மிகவும்',
+            'more': 'மேலும்', 'can': 'முடியும்', 'should': 'வேண்டும்',
+            'will': 'போகிறது', 'must': 'கட்டாயம்',
+        }
+        
         words = text.lower().split()
         tamil_words = []
         for word in words:
             if word in translation_dict:
                 tamil_words.append(translation_dict[word])
             else:
-                tamil_words.append(f"[{word}]")
+                tamil_words.append(word)
         formal_tamil = " ".join(tamil_words) + "."
     
     # Convert formal Tamil to simple, understandable Tamil
@@ -260,35 +193,18 @@ def translate_to_simple_tamil(text, source_lang='auto'):
 def make_tamil_simple(tamil_text):
     """Convert formal Tamil to simple, spoken Tamil"""
     simplifications = {
-        # Formal to informal
-        r'என்பது\b': 'என்பது',
-        r'மாற்றுவதற்கான\b': 'மாற்ற',
-        r'சக்திவாய்ந்த\b': 'சக்தி உள்ள',
-        r'ஆயுதமாகும்\b': 'கருவி',
-        r'மிகவும்\b': 'மிக',
-        r'கற்றல் வேண்டும்\b': 'கற்றுக்கொள்ள வேண்டும்',
-        r'முக்கியமானது\b': 'முக்கியம்',
-        
-        # Sentence structure simplifications
-        r'\.$': '.',
-        r'\s+': ' ',
+        'என்பது': 'என்பது',
+        'மாற்றுவதற்கான': 'மாற்ற',
+        'சக்திவாய்ந்த': 'சக்தி உள்ள',
+        'ஆயுதமாகும்': 'கருவி',
+        'மிகவும்': 'மிக',
+        'கற்றல் வேண்டும்': 'கற்றுக்கொள்ள வேண்டும்',
+        'முக்கியமானது': 'முக்கியம்',
     }
     
     simple_text = tamil_text
-    
-    for pattern, replacement in simplifications.items():
-        simple_text = re.sub(pattern, replacement, simple_text)
-    
-    # Make it more conversational
-    conversational_additions = {
-        "கருவி.": "கருவி ஆகும்.",
-        "முக்கியம்.": "முக்கியம் தான்.",
-        "கற்றுக்கொள்ள வேண்டும்.": "நன்றாகப் படிக்க வேண்டும்.",
-    }
-    
-    for key, value in conversational_additions.items():
-        if simple_text.endswith(key):
-            simple_text = simple_text.replace(key, value)
+    for formal, simple in simplifications.items():
+        simple_text = simple_text.replace(formal, simple)
     
     return simple_text
 
@@ -354,6 +270,8 @@ def simplify_ancient_tamil_line(line):
         "இன்பத் தமிழ் எங்கள் வாழ்வுக்கு நிருமித்த ஊர்": "மகிழ்ச்சி தரும் தமிழ் நம் வாழ்க்கைக்குக் கட்டப்பட்ட ஊர்",
         "கற்க கசடறக் கற்பவை கற்றபின்": "குறைகள் இல்லாமல் கற்க வேண்டியவற்றைக் கற்ற பிறகு",
         "நிற்க அதற்குத் தக": "அதற்குத் தகுந்தாற்போல் நடந்துகொள்ள வேண்டும்",
+        "யாதும் ஊரே யாவரும் கேளிர்": "எந்த ஊரும் எம் ஊரே, எல்லாரும் எம் உறவினர்",
+        "தீதும் நன்றும் பிறர்தர வாரா": "தீமையும் நன்மையும் பிறரால் வருவதில்லை",
     }
     
     meaning = meaning_db.get(line, "இந்த வரி தமிழ் மொழியின் அழகையும் முக்கியத்துவத்தையும் பற்றிப் பேசுகிறது")
@@ -371,7 +289,7 @@ def load_poetry_database():
             return json.load(f)
     except:
         return {
-            "பாரதியார் - தமிழ் வாஷ்த்து": {
+            "பாரதியார் - தமிழ் வாழ்த்து": {
                 "period": "நவீன காலம்",
                 "lines": [
                     "தமிழுக்கும் அழகைன்றுபேரர்!",
@@ -390,61 +308,64 @@ def main():
     """Main application function"""
     
     # Initialize session state
-    if 'page' not in st.session_state:
-        st.session_state.page = "home"
-    if 'phase' not in st.session_state:
-        st.session_state.phase = "phase1"
+    if 'current_page' not in st.session_state:
+        st.session_state.current_page = "home"
+    if 'input_text' not in st.session_state:
+        st.session_state.input_text = ""
+    if 'example_text' not in st.session_state:
+        st.session_state.example_text = ""
     
     # Sidebar
     with st.sidebar:
         st.markdown('<div class="sidebar-header">தமிழ் மாற்றம்</div>', unsafe_allow_html=True)
         st.markdown("---")
         
-        # Navigation
-        page_options = {
-            "🏠 முகப்பு": "home",
-            "🔄 எந்த மொழியும் → எளிய தமிழ்": "phase1",
-            "📜 பழந்தமிழ் → நவீன தமிழ் + பொருள்": "phase2",
-            "📚 பாடல் தேர்வு": "poems",
-            "ℹ️ உதவி": "help"
-        }
-        
-        selected_page = st.radio(
+        # Navigation using radio buttons
+        page = st.radio(
             "செல்ல வேண்டிய பக்கம்:",
-            list(page_options.keys()),
+            ["🏠 முகப்பு", "🔄 எளிய தமிழாக மாற்று", "📜 பழந்தமிழைப் புரிந்துகொள்", "📚 பாடல்கள்", "ℹ️ உதவி"],
             label_visibility="collapsed"
         )
         
-        st.session_state.page = page_options[selected_page]
+        # Map radio selection to page
+        page_map = {
+            "🏠 முகப்பு": "home",
+            "🔄 எளிய தமிழாக மாற்று": "phase1",
+            "📜 பழந்தமிழைப் புரிந்துகொள்": "phase2", 
+            "📚 பாடல்கள்": "poems",
+            "ℹ️ உதவி": "help"
+        }
+        
+        current_page = page_map[page]
         
         st.markdown("---")
         
         # Info
         st.markdown("**🎯 பயனர்கள்:**")
-        st.markdown("- பள்ளி மாணவர்கள்")
-        st.markdown("- TNPSC தேர்வர்கள்")
-        st.markdown("- தமிழ் கற்கும் அனைவரும்")
+        st.markdown("• பள்ளி மாணவர்கள்")
+        st.markdown("• TNPSC தேர்வர்கள்")
+        st.markdown("• தமிழ் கற்கும் அனைவரும்")
         
         st.markdown("---")
         
         st.markdown("**🌍 ஆதரவு மொழிகள்:**")
-        st.markdown("- ஆங்கிலம்")
-        st.markdown("- இந்தி")
-        st.markdown("- தமிழ் (பழந்தமிழ் & நவீன)")
+        st.markdown("• ஆங்கிலம்")
+        st.markdown("• இந்தி")
+        st.markdown("• தமிழ்")
         
         st.markdown("---")
         st.caption("வாழ்க தமிழ்! ❤️")
     
     # Page routing
-    if st.session_state.page == "home":
+    if current_page == "home":
         show_home_page()
-    elif st.session_state.page == "phase1":
+    elif current_page == "phase1":
         show_phase1_page()
-    elif st.session_state.page == "phase2":
+    elif current_page == "phase2":
         show_phase2_page()
-    elif st.session_state.page == "poems":
+    elif current_page == "poems":
         show_poems_page()
-    elif st.session_state.page == "help":
+    elif current_page == "help":
         show_help_page()
 
 def show_home_page():
@@ -497,57 +418,36 @@ def show_home_page():
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("""
-        <div class="phase-card" onclick="window.location.href='?phase=1'">
-        <h3>🔄 1. எளிய தமிழாக மாற்று</h3>
-        <p><strong>எந்த மொழியிலிருந்தும் எளிய தமிழுக்கு</strong></p>
-        <p>Google Translate போன்றவற்றை விட சிறந்தது</p>
-        <br>
-        <strong>பயனர்கள்:</strong>
-        <ul>
-        <li>பள்ளி மாணவர்கள்</li>
-        <li>தமிழ் கற்கும் மக்கள்</li>
-        <li>பொது மக்கள்</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="phase-card">', unsafe_allow_html=True)
+        st.markdown("### 🔄 1. எளிய தமிழாக மாற்று")
+        st.markdown("**எந்த மொழியிலிருந்தும் எளிய தமிழுக்கு**")
+        st.markdown("Google Translate போன்றவற்றை விட சிறந்தது")
+        st.markdown("")
+        st.markdown("**பயனர்கள்:**")
+        st.markdown("- பள்ளி மாணவர்கள்")
+        st.markdown("- தமிழ் கற்கும் மக்கள்")
+        st.markdown("- பொது மக்கள்")
+        st.markdown("</div>", unsafe_allow_html=True)
         
-        if st.button("🔄 1வது அடுக்கை முயல்க", use_container_width=True):
-            st.session_state.page = "phase1"
-            st.rerun()
+        if st.button("🔄 1வது அடுக்கை முயல்க", key="btn_phase1"):
+            # Set session state and rerun
+            pass
     
     with col2:
-        st.markdown("""
-        <div class="phase-card" onclick="window.location.href='?phase=2'">
-        <h3>📜 2. பழந்தமிழைப் புரிந்துகொள்</h3>
-        <p><strong>பழந்தமிழ் → நவீன தமிழ் + பொருள்</strong></p>
-        <p>மாணவர்கள் & TNPSC தேர்வர்களுக்கான கற்றல் கருவி</p>
-        <br>
-        <strong>பயனர்கள்:</strong>
-        <ul>
-        <li>TNPSC தேர்வர்கள்</li>
-        <li>இலக்கியம் படிக்கும் மாணவர்கள்</li>
-        <li>தமிழ் ஆராய்ச்சியாளர்கள்</li>
-        </ul>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown('<div class="phase-card">', unsafe_allow_html=True)
+        st.markdown("### 📜 2. பழந்தமிழைப் புரிந்துகொள்")
+        st.markdown("**பழந்தமிழ் → நவீன தமிழ் + பொருள்**")
+        st.markdown("மாணவர்கள் & TNPSC தேர்வர்களுக்கான கற்றல் கருவி")
+        st.markdown("")
+        st.markdown("**பயனர்கள்:**")
+        st.markdown("- TNPSC தேர்வர்கள்")
+        st.markdown("- இலக்கியம் படிக்கும் மாணவர்கள்")
+        st.markdown("- தமிழ் ஆராய்ச்சியாளர்கள்")
+        st.markdown("</div>", unsafe_allow_html=True)
         
-        if st.button("📜 2வது அடுக்கை முயல்க", use_container_width=True):
-            st.session_state.page = "phase2"
-            st.rerun()
-    
-    # Comparison Table
-    st.markdown("---")
-    st.markdown("### 📊 எங்கள் அமைப்பு vs மற்றவை")
-    
-    comparison_data = {
-        "அம்சம்": ["மொழிபெயர்ப்பு தரம்", "புரிதல் எளிமை", "மாணவர்-நட்பு", "பழந்தமிழ் ஆதரவு", "விலை"],
-        "Google Translate": ["நல்லது", "கடினம்", "இல்லை", "இல்லை", "இலவசம்"],
-        "Bhashini": ["நல்லது", "மிதமான", "குறைவு", "குறைவு", "இலவசம்"],
-        "எங்கள் அமைப்பு": ["**சிறந்தது**", "**மிக எளிது**", "**ஆம்**", "**முழு ஆதரவு**", "**இலவசம்**"]
-    }
-    
-    st.table(comparison_data)
+        if st.button("📜 2வது அடுக்கை முயல்க", key="btn_phase2"):
+            # Set session state and rerun
+            pass
 
 def show_phase1_page():
     """Phase 1: Any language to simple Tamil"""
@@ -561,14 +461,17 @@ def show_phase1_page():
         "ஆங்கிலம்": "Education is the most powerful weapon to change the world.",
         "இந்தி": "शिक्षा दुनिया को बदलने के लिए सबसे शक्तिशाली हथियार है।",
         "தமிழ்": "கல்வி என்பது உலகத்தை மாற்றும் சிறந்த கருவியாகும்.",
-        "தெலுங்கు": "విద్య ప్రపంచాన్ని మార్చడానికి శక్తివంతమైన ఆయుధం."
+        "தெலுங்கு": "విద్య ప్రపంచాన్ని మార్చడానికి శక్తివంతమైన ఆయుధం."
     }
     
-    # Example buttons
+    # Example buttons in columns
     cols = st.columns(4)
-    for idx, (lang, text) in enumerate(examples.items()):
+    example_cols = list(examples.items())
+    
+    for idx in range(4):
         with cols[idx]:
-            if st.button(f"{lang}", use_container_width=True):
+            lang, text = example_cols[idx]
+            if st.button(f"{lang}", key=f"ex_{idx}"):
                 st.session_state.example_text = text
     
     # Text input
@@ -576,10 +479,11 @@ def show_phase1_page():
         "உரையை இங்கே உள்ளிடவும்:",
         value=st.session_state.get('example_text', examples["ஆங்கிலம்"]),
         height=150,
-        placeholder="எந்த மொழியிலும் உரையை உள்ளிடவும்..."
+        placeholder="எந்த மொழியிலும் உரையை உள்ளிடவும்...",
+        key="phase1_input"
     )
     
-    if st.button("✨ தமிழாக மாற்று", type="primary", use_container_width=True):
+    if st.button("✨ தமிழாக மாற்று", type="primary", key="translate_btn"):
         if input_text.strip():
             with st.spinner("மொழிபெயர்ப்பு செயல்படுத்தப்படுகிறது..."):
                 # Detect language
@@ -618,20 +522,6 @@ def show_phase1_page():
                 st.markdown("### 📝 பொருள் விளக்கம்")
                 st.markdown(f'<div class="meaning-box">{result["explanation"]}</div>', unsafe_allow_html=True)
                 
-                # Why better
-                st.markdown("### 👍 எங்கள் மொழிபெயர்ப்பு ஏன் சிறந்தது?")
-                
-                improvements = [
-                    "✅ **சூழல்-அறிந்த மொழிபெயர்ப்பு:** வாக்கியத்தின் பொருளைப் புரிந்துகொண்டு மொழிபெயர்க்கிறது",
-                    "✅ **பேச்சுத் தமிழ்:** முறையான தமிழுக்கு பதிலாக பேச்சுத் தமிழைப் பயன்படுத்துகிறது",
-                    "✅ **குறுகிய வாக்கியங்கள்:** நீண்ட வாக்கியங்களை சிறியதாகப் பிரிக்கிறது",
-                    "✅ **பொதுச் சொற்கள்:** கடினமான சொற்களை எளிமையானவற்றால் மாற்றுகிறது",
-                    "✅ **மாணவர்-நட்பு:** பள்ளி மாணவர்கள் எளிதாகப் புரிந்துகொள்ளும் வகையில்"
-                ]
-                
-                for imp in improvements:
-                    st.markdown(imp)
-                
                 # Download
                 download_text = f"""எளிய தமிழ் மொழிபெயர்ப்பு - முடிவுகள்
 
@@ -652,8 +542,7 @@ Google Translate போன்றவை: {result["formal_tamil"]}
                     label="📥 முடிவுகளைப் பதிவிறக்குக",
                     data=download_text,
                     file_name="எளிய_தமிழ்_மொழிபெயர்ப்பு.txt",
-                    mime="text/plain",
-                    use_container_width=True
+                    mime="text/plain"
                 )
         else:
             st.warning("உரையை உள்ளிடவும்!")
@@ -674,22 +563,24 @@ def show_phase2_page():
     }
     
     # Example selection
-    example_choice = st.selectbox("உதாரணத்தைத் தேர்ந்தெடுக்கவும்:", list(ancient_examples.keys()))
+    example_choice = st.selectbox("உதாரணத்தைத் தேர்ந்தெடுக்கவும்:", list(ancient_examples.keys()), key="ancient_example")
     
     if example_choice == "சுயமாக உள்ளிடவும்":
         input_text = st.text_area(
             "பழந்தமிழ் உரையை இங்கே உள்ளிடவும்:",
             height=150,
-            placeholder="பழந்தமிழ் உரையை ஒட்டவும்..."
+            placeholder="பழந்தமிழ் உரையை ஒட்டவும்...",
+            key="ancient_input"
         )
     else:
         input_text = st.text_area(
             "பழந்தமிழ் உரை:",
             value=ancient_examples[example_choice],
-            height=150
+            height=150,
+            key="ancient_text"
         )
     
-    if st.button("🔍 பகுப்பாய்வு செய்க", type="primary", use_container_width=True):
+    if st.button("🔍 பகுப்பாய்வு செய்க", type="primary", key="analyze_btn"):
         if input_text.strip():
             with st.spinner("பழந்தமிழ் பகுப்பாய்வு செயல்படுத்தப்படுகிறது..."):
                 # Split into lines
@@ -698,12 +589,15 @@ def show_phase2_page():
                 st.markdown("---")
                 st.markdown("## 📚 வரிக்கு வரி பகுப்பாய்வு")
                 
+                all_results = []
+                
                 for i, line in enumerate(lines):
                     if line:
                         st.markdown(f"### 📖 வரி {i+1}")
                         
                         # Analyze the line
                         analysis = simplify_ancient_tamil_line(line)
+                        all_results.append(analysis)
                         
                         col1, col2 = st.columns(2)
                         
@@ -721,27 +615,9 @@ def show_phase2_page():
                         
                         st.markdown("---")
                 
-                # Educational Tips
-                st.markdown("### 💡 TNPSC தேர்வர்களுக்கான உதவிக்குறிப்புகள்")
-                
-                tips = [
-                    "📚 **தினமும் 5-10 வரிகள் மட்டும் படிக்கவும்** - மனதில் பதியும்",
-                    "✍️ **நோட்புக்கில் எழுதி பழகவும்** - நினைவாற்றல் அதிகரிக்கும்",
-                    "🗣️ **சத்தமாக வாசிக்கவும்** - உச்சரிப்பு மேம்படும்",
-                    "🤔 **பொருளை முதலில் புரிந்துகொள்ளவும்** - மனப்பாடம் செய்ய வேண்டாம்",
-                    "🔄 **மீண்டும் மீண்டும் படிக்கவும்** - பழையவை மறக்காமல் இருக்க",
-                    "⏰ **நேரம் பகிர்ந்து படிக்கவும்** - தினமும் 30 நிமிடங்கள் போதும்",
-                    "📖 **வெவ்வேறு பாடல்களைப் படிக்கவும்** - பரந்த அறிவு கிடைக்கும்",
-                    "✅ **தேர்வுக்கு முன் மீண்டும் படிக்கவும்** - நல்ல மதிப்பெண்கள் கிடைக்கும்"
-                ]
-                
-                for tip in tips:
-                    st.markdown(tip)
-                
                 # Download all results
                 result_text = "பழந்தமிழ் பகுப்பாய்வு - முடிவுகள்\n\n"
-                for i, line in enumerate(lines):
-                    analysis = simplify_ancient_tamil_line(line)
+                for i, analysis in enumerate(all_results):
                     result_text += f"வரி {i+1}:\n"
                     result_text += f"அசல்: {analysis['original']}\n"
                     result_text += f"நவீன: {analysis['modern']}\n"
@@ -751,8 +627,7 @@ def show_phase2_page():
                     label="📥 அனைத்து முடிவுகளையும் பதிவிறக்குக",
                     data=result_text,
                     file_name="பழந்தமிழ்_பகுப்பாய்வு.txt",
-                    mime="text/plain",
-                    use_container_width=True
+                    mime="text/plain"
                 )
         else:
             st.warning("பழந்தமிழ் உரையை உள்ளிடவும்!")
@@ -763,7 +638,7 @@ def show_poems_page():
     
     poems_db = load_poetry_database()
     
-    poem_choice = st.selectbox("பாடலைத் தேர்ந்தெடுக்கவும்:", list(poems_db.keys()))
+    poem_choice = st.selectbox("பாடலைத் தேர்ந்தெடுக்கவும்:", list(poems_db.keys()), key="poem_choice")
     
     if poem_choice:
         poem = poems_db[poem_choice]
@@ -776,10 +651,10 @@ def show_poems_page():
         for line in poem['lines']:
             st.markdown(f'<div class="original-box">{line}</div>', unsafe_allow_html=True)
         
-        if st.button("🔍 இந்த பாடலைப் பகுப்பாய்வு செய்க", type="primary", use_container_width=True):
-            st.session_state.page = "phase2"
-            st.session_state.poem_lines = poem['lines']
-            st.rerun()
+        if st.button("🔍 இந்த பாடலைப் பகுப்பாய்வு செய்க", key="analyze_poem"):
+            # Set the input text for phase 2
+            st.session_state.input_text = "\n".join(poem['lines'])
+            # Note: User will need to manually go to phase 2 page
 
 def show_help_page():
     """Help and guide page"""
@@ -820,25 +695,12 @@ def show_help_page():
     - தமிழ் கற்க விரும்புவோர்
     - தமிழ் இலக்கியம் படிக்க விரும்புவோர்
     
-    ## 🔧 தொழில்நுட்பம்
-    
-    - **முன்பக்கம்:** Streamlit (Python)
-    - **மொழிபெயர்ப்பு:** சிறப்பு வழிமுறைகள்
-    - **பழந்தமிழ் பகுப்பாய்வு:** விதி-அடிப்படையிலான முறை
-    - **பயனர் இடைமுகம்:** முற்றிலும் தமிழில்
-    
     ## 💡 உதவிக்குறிப்புகள்
     
     1. தெளிவான உரையை உள்ளிடவும்
     2. நீண்ட உரைகளை பகுதிகளாக உள்ளிடவும்
     3. முடிவுகளை பதிவிறக்கம் செய்யலாம்
     4. TNPSC தேர்வுக்கு தினமும் பயிற்சி செய்யவும்
-    
-    ## ❓ பிரச்சனைகள் / பரிந்துரைகள்
-    
-    பிரச்சனைகள் இருந்தால் அல்லது பரிந்துரைகள் இருந்தால்:
-    - Email: help@tamiltransform.com
-    - Website: www.tamiltransform.com
     
     ---
     
