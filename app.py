@@ -1,82 +1,128 @@
 import streamlit as st
+from deep_translator import GoogleTranslator
+from langdetect import detect
 from PIL import Image
 import pytesseract
-import json
-import numpy as np
+import pdfplumber
+import speech_recognition as sr
+from gtts import gTTS
+import os
+import uuid
 
-# ----------------------------
-# Load ancient-modern mapping
-# ----------------------------
-with open("ancient_modern_map.json", "r", encoding="utf-8") as f:
-    WORD_MAP = json.load(f)
+# ------------------ PAGE CONFIG ------------------
+st.set_page_config(
+    page_title="Context-Aware Tamil Interpretation System",
+    layout="wide"
+)
 
-# ----------------------------
-# Helper Functions
-# ----------------------------
+st.title("📘 Context-Aware Tamil Language Interpretation System")
+st.caption("Student-friendly Tamil understanding for modern and classical content")
+
+# ------------------ FUNCTIONS ------------------
+
+def simple_tamil_rewrite(text):
+    """
+    Converts translated Tamil into simpler, student-friendly Tamil
+    (rule-based simplification – lightweight & explainable)
+    """
+    replacements = {
+        "வழங்கினார்": "கொடுத்தார்",
+        "தானமாக": "இலவசமாக",
+        "இந்நிலம்": "இந்த நிலம்",
+        "கோயில்": "கோவில்",
+        "அளிக்கப்பட்டது": "கொடுக்கப்பட்டது"
+    }
+    for k, v in replacements.items():
+        text = text.replace(k, v)
+    return text
+
+
+def translate_to_tamil(text):
+    lang = detect(text)
+    translated = GoogleTranslator(source=lang, target="ta").translate(text)
+    simplified = simple_tamil_rewrite(translated)
+    return simplified
+
+
 def extract_text_from_image(image):
-    try:
-        return pytesseract.image_to_string(image, lang="tam")
-    except:
-        return ""
+    text = pytesseract.image_to_string(image, lang="tam")
+    return text.strip()
 
-def convert_ancient_to_modern(text):
-    modern_lines = []
-    words = text.split()
 
-    for w in words:
-        clean = w.strip(".,;:!?()[]{}")
-        modern = WORD_MAP.get(clean, clean)
-        modern_lines.append(modern)
+def extract_text_from_pdf(pdf_file):
+    extracted_text = ""
+    with pdfplumber.open(pdf_file) as pdf:
+        for page in pdf.pages:
+            extracted_text += page.extract_text() or ""
+    return extracted_text.strip()
 
-    return " ".join(modern_lines)
 
-def archaeological_inference():
-    return (
-        "இந்த உரை பழைய தமிழில் எழுதப்பட்டுள்ளது. "
-        "சில பகுதிகள் தெளிவாக இல்லாவிட்டாலும், "
-        "இது சமூக அல்லது கோவில் தொடர்பான பதிவாக இருக்க வாய்ப்பு உள்ளது."
-    )
+def tamil_tts(text):
+    file_name = f"tamil_{uuid.uuid4()}.mp3"
+    tts = gTTS(text=text, lang="ta")
+    tts.save(file_name)
+    return file_name
 
-# ----------------------------
-# Streamlit UI
-# ----------------------------
-st.set_page_config(page_title="Ancient Tamil → Modern Tamil", layout="centered")
-st.title("🏺 Ancient Tamil → Simple Modern Tamil Converter")
 
-st.markdown("இந்த செயலி பழைய தமிழ் உரைகளை எளிய இன்றைய தமிழாக மாற்றுகிறது.")
+# ------------------ INPUT SECTIONS ------------------
 
-input_type = st.radio("உள்ளீடு வகை தேர்வு செய்யவும்", ["Text", "Image"])
+option = st.sidebar.selectbox(
+    "Choose Input Type",
+    ["Text", "Voice", "Image", "PDF"]
+)
 
-ancient_text = ""
+final_text = ""
 
-if input_type == "Text":
-    ancient_text = st.text_area("பழைய தமிழ் உரை இங்கே உள்ளிடவும்")
+# -------- TEXT INPUT --------
+if option == "Text":
+    input_text = st.text_area("Enter text in ANY language")
+    if st.button("Convert to Simple Tamil"):
+        final_text = translate_to_tamil(input_text)
 
-else:
-    img_file = st.file_uploader("பழைய தமிழ் படம் பதிவேற்றவும்", type=["jpg", "png", "jpeg"])
-    if img_file:
-        image = Image.open(img_file)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
-        ancient_text = extract_text_from_image(image)
+# -------- VOICE INPUT --------
+elif option == "Voice":
+    audio_file = st.file_uploader("Upload voice file (wav/mp3)", type=["wav", "mp3"])
+    if audio_file:
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(audio_file) as source:
+            audio = recognizer.record(source)
+        try:
+            text = recognizer.recognize_google(audio)
+            final_text = translate_to_tamil(text)
+        except:
+            st.error("Could not recognize audio")
 
-# ----------------------------
-# Processing
-# ----------------------------
-if st.button("மாற்று (Convert)"):
-    if ancient_text.strip() == "":
-        st.warning("உரை தெளிவாக இல்லை. ஆனால் விளக்கமாக மாற்ற முயற்சிக்கப்படுகிறது.")
+# -------- IMAGE INPUT --------
+elif option == "Image":
+    image_file = st.file_uploader("Upload Tamil image (old / classical / textbook)", type=["jpg", "png", "jpeg"])
+    if image_file:
+        image = Image.open(image_file)
+        st.image(image, caption="Uploaded Image", width=400)
+        extracted = extract_text_from_image(image)
+        if extracted:
+            final_text = translate_to_tamil(extracted)
+        else:
+            st.warning("Text not clear enough")
 
-        st.subheader("🧠 விளக்கமான பொருள் (Inference)")
-        st.write(archaeological_inference())
+# -------- PDF INPUT --------
+elif option == "PDF":
+    pdf_file = st.file_uploader("Upload Tamil lesson / chapter PDF", type=["pdf"])
+    if pdf_file:
+        extracted = extract_text_from_pdf(pdf_file)
+        if extracted:
+            final_text = translate_to_tamil(extracted)
+        else:
+            st.warning("No readable text found")
 
-    else:
-        st.subheader("📜 கண்டறியப்பட்ட பழைய தமிழ்")
-        st.write(ancient_text)
+# ------------------ OUTPUT ------------------
 
-        modern = convert_ancient_to_modern(ancient_text)
+if final_text:
+    st.subheader("✅ Student-Friendly Modern Tamil Output")
+    st.write(final_text)
 
-        st.subheader("✅ எளிய இன்றைய தமிழ்")
-        st.success(modern)
+    audio_path = tamil_tts(final_text)
+    st.audio(audio_path)
 
-        st.caption("⚠️ இது சொல்-சொல்லாக மொழிபெயர்ப்பு அல்ல. மொழியியல் மறுஉருவாக்கம்.")
+    st.info("✔ Output rewritten for easy student understanding (not literal translation)")
+
 
