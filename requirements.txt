@@ -1,7 +1,7 @@
 streamlit
+easyocr
 pillow
-pytesseract
 pdfplumber
-speechrecognition
 deep-translator
-langdetect
+torch
+torchvision
