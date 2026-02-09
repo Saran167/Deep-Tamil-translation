@@ -5,4 +5,3 @@ pdfplumber
 speechrecognition
 deep-translator
 langdetect
-pyaudio
