@@ -1,3 +1,5 @@
+# Create new file with correct JSON
+cat > poetry_examples.json << 'EOF'
 {
   "தமிழ் வாழ்த்து": {
     "author": "பாரதியார்",
@@ -13,10 +15,11 @@
   },
   "கல்வி": {
     "author": "ஔவையார்",
-    "period": "Classical", 
+    "period": "Classical",
     "lines": [
       "கற்க கசடறக் கற்பவை கற்றபின்",
       "நிற்க அதற்குத் தக"
     ]
   }
 }
+EOF
