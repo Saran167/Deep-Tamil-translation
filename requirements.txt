@@ -1,7 +1,7 @@
 streamlit
-easyocr
+easyocr==1.7.1
+torch==2.1.2
+torchvision==0.16.2
 pillow
 pdfplumber
 deep-translator
-torch
-torchvision
