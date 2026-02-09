@@ -1,8 +1,4 @@
 streamlit
-easyocr
 pillow
-numpy
 deep-translator
 PyMuPDF
-torch
-torchvision
