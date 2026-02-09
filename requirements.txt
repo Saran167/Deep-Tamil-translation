@@ -1,8 +1,8 @@
 streamlit
-deep-translator
-langdetect
+easyocr
 pillow
-pytesseract
-pdfplumber
-speechrecognition
-gTTS
+numpy
+deep-translator
+PyMuPDF
+torch
+torchvision
