@@ -1,5 +1,3 @@
-# Create new file with correct JSON
-cat > poetry_examples.json << 'EOF'
 {
   "தமிழ் வாழ்த்து": {
     "author": "பாரதியார்",
@@ -22,4 +20,3 @@ cat > poetry_examples.json << 'EOF'
     ]
   }
 }
-EOF
