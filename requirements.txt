@@ -1,2 +1,8 @@
 streamlit
 pillow
+pytesseract
+pdfplumber
+speechrecognition
+deep-translator
+langdetect
+pyaudio
