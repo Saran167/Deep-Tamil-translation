@@ -23,17 +23,18 @@ def detect_language(text):
 
 def translate_to_tamil(text):
     try:
-        return GoogleTranslator(source='auto', target='ta').translate(text)
+        return GoogleTranslator(source="auto", target="ta").translate(text)
     except:
-        return "Translation failed"
+        return "❌ Translation failed"
 
 def simplify_tamil(text):
-    # Basic placeholder simplification
+    # Simple rule-based simplification (can be improved later)
     replacements = {
         "மிகவும்": "ரொம்ப",
         "தேவையான": "வேண்டிய",
         "பயன்படுத்தப்படுகிறது": "பயன்படுகிறது",
-        "உள்ளது": "இருக்கு"
+        "உள்ளது": "இருக்கு",
+        "முடியும்": "செய்யலாம்"
     }
     for k, v in replacements.items():
         text = text.replace(k, v)
@@ -43,17 +44,18 @@ def ocr_image(image):
     return pytesseract.image_to_string(image, lang="tam+eng")
 
 def ocr_pdf(pdf_file):
-    text = ""
+    extracted_text = ""
     with pdfplumber.open(pdf_file) as pdf:
         for page in pdf.pages:
-            text += page.extract_text() + "\n"
-    return text
+            text = page.extract_text()
+            if text:
+                extracted_text += text + "\n"
+    return extracted_text
 
-def voice_to_text():
+def audio_file_to_text(audio_file):
     recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("🎙️ Speak now...")
-        audio = recognizer.listen(source)
+    with sr.AudioFile(audio_file) as source:
+        audio = recognizer.record(source)
     try:
         return recognizer.recognize_google(audio)
     except:
@@ -61,38 +63,43 @@ def voice_to_text():
 
 # -------------------- HEADER --------------------
 st.title("🧠 Dual-Phase Intelligent Tamil Translation System")
-st.subheader("Phase-1: Any Language → Simple, People-Friendly Tamil")
+st.subheader("Phase 1: Any Language → Simple, People-Friendly Tamil")
 
 st.markdown(
-    "This phase converts **any language** into **easy modern Tamil** that common people can understand."
+    """
+    This phase converts **any language** into **simple modern Tamil**
+    that common people can easily understand.
+    """
 )
 
 st.divider()
 
-# -------------------- INPUT TYPE --------------------
+# -------------------- INPUT TYPE SELECTION --------------------
 input_type = st.radio(
     "📥 Select Input Type",
-    ["Text", "Voice", "Image", "PDF"],
+    ["Text", "Voice (Audio Upload)", "Image", "PDF"],
     horizontal=True
 )
 
 input_text = ""
 
-# -------------------- INPUT UI --------------------
+# -------------------- INPUT SECTION --------------------
 if input_type == "Text":
     input_text = st.text_area(
         "✍️ Enter text in any language",
-        height=200
+        height=200,
+        placeholder="Type or paste text here..."
     )
 
-elif input_type == "Voice":
-    if st.button("🎙️ Start Voice Input"):
-        input_text = voice_to_text()
-        st.success("Voice captured successfully!")
+elif input_type == "Voice (Audio Upload)":
+    st.info("🎧 Upload an audio file (WAV or MP3)")
+    audio_file = st.file_uploader("Upload Audio File", type=["wav", "mp3"])
+    if audio_file:
+        input_text = audio_file_to_text(audio_file)
         st.text_area("Recognized Text", input_text, height=150)
 
 elif input_type == "Image":
-    image_file = st.file_uploader("📷 Upload Image", type=["jpg", "png", "jpeg"])
+    image_file = st.file_uploader("📷 Upload Image", type=["jpg", "jpeg", "png"])
     if image_file:
         image = Image.open(image_file)
         st.image(image, caption="Uploaded Image", use_column_width=True)
@@ -107,17 +114,17 @@ elif input_type == "PDF":
 
 st.divider()
 
-# -------------------- PROCESS --------------------
+# -------------------- PROCESS BUTTON --------------------
 if st.button("🔄 Convert to Simple Tamil", type="primary"):
 
     if not input_text.strip():
-        st.warning("Please provide input!")
+        st.warning("⚠️ Please provide input text!")
     else:
-        with st.spinner("Processing..."):
+        with st.spinner("Processing... Please wait"):
 
             detected_lang = detect_language(input_text)
-            tamil_text = translate_to_tamil(input_text)
-            simple_tamil = simplify_tamil(tamil_text)
+            tamil_translation = translate_to_tamil(input_text)
+            simple_tamil = simplify_tamil(tamil_translation)
 
         st.success("✅ Conversion Completed")
 
@@ -126,32 +133,35 @@ if st.button("🔄 Convert to Simple Tamil", type="primary"):
         col1, col2 = st.columns(2)
 
         with col1:
-            st.markdown("### 📄 Original Text")
+            st.markdown("### 📄 Original / Extracted Text")
             st.markdown(f"**Detected Language:** `{detected_lang}`")
-            st.text_area("Input", input_text, height=220)
+            st.text_area("Input Text", input_text, height=230)
 
         with col2:
-            st.markdown("### ✅ Simple Tamil Output")
-            st.text_area("Simplified Tamil", simple_tamil, height=220)
+            st.markdown("### ✅ Simple Modern Tamil Output")
+            st.text_area("Simplified Tamil", simple_tamil, height=230)
 
         st.download_button(
             "⬇️ Download Output",
             simple_tamil,
-            file_name="simple_tamil_translation.txt"
+            file_name="simple_tamil_translation.txt",
+            mime="text/plain"
         )
 
 # -------------------- SIDEBAR --------------------
-st.sidebar.title("ℹ️ Phase-1 Info")
+st.sidebar.title("ℹ️ Phase 1 Overview")
 st.sidebar.markdown(
     """
     **Features**
-    - Auto language detection
-    - Translation to Tamil
-    - Simple spoken Tamil
-    - Text, Voice, Image & PDF input
+    - Auto language detection  
+    - Translation to Tamil  
+    - Simple spoken Tamil  
+    - Text, Audio, Image & PDF input  
     """
 )
+
 st.sidebar.markdown("---")
-st.sidebar.markdown("🎓 Useful for common people & beginners")
+st.sidebar.markdown("🎓 Designed for common people & learners")
+
 
 
