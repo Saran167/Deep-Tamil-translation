@@ -1,3 +1,4 @@
+import streamlit as st   # ← THIS WAS MISSING
 from core.translator import translate_to_tamil
 from core.simplifier import simple_tamil, people_friendly_tamil
 
@@ -7,7 +8,7 @@ st.title("Tamil Language Simplification System")
 
 st.write(
     "Enter text in **any language**. "
-    "The system translates it to Tamil and converts it into "
+    "The system translates it into Tamil and then converts it into "
     "simple, people-friendly Tamil."
 )
 
@@ -17,7 +18,7 @@ if st.button("Convert"):
     if input_text.strip() == "":
         st.warning("Please enter some text.")
     else:
-        with st.spinner("Translating..."):
+        with st.spinner("Translating to Tamil..."):
             tamil_text = translate_to_tamil(input_text)
 
         if tamil_text == "":
@@ -34,12 +35,4 @@ if st.button("Convert"):
 
             st.subheader("People-Friendly Tamil")
             st.write(friendly)
-
-
-
-
-
-
-
-
 
