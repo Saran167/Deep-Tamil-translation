@@ -1,15 +1,13 @@
-import streamlit as st   # ← THIS WAS MISSING
+import streamlit as st
 from core.translator import translate_to_tamil
 from core.simplifier import simple_tamil, people_friendly_tamil
 
-st.set_page_config(page_title="Tamil Simplification System")
+st.set_page_config(page_title="Any Language to Tamil")
 
-st.title("Tamil Language Simplification System")
-
+st.title("🌍 Any Language → Simple Tamil")
 st.write(
-    "Enter text in **any language**. "
-    "The system translates it into Tamil and then converts it into "
-    "simple, people-friendly Tamil."
+    "This system uses **Deep Translator (GoogleTranslator)** "
+    "and converts the output into people-friendly Tamil."
 )
 
 input_text = st.text_area("Enter your text", height=180)
@@ -18,7 +16,7 @@ if st.button("Convert"):
     if input_text.strip() == "":
         st.warning("Please enter some text.")
     else:
-        with st.spinner("Translating to Tamil..."):
+        with st.spinner("Translating..."):
             tamil_text = translate_to_tamil(input_text)
 
         if tamil_text == "":
@@ -35,4 +33,5 @@ if st.button("Convert"):
 
             st.subheader("People-Friendly Tamil")
             st.write(friendly)
+
 
