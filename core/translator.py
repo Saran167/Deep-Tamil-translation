@@ -1,22 +1,11 @@
-import requests
-
-LIBRE_URL = "https://libretranslate.de/translate"
+from deep_translator import GoogleTranslator
 
 def translate_to_tamil(text):
     try:
-        payload = {
-            "q": text,
-            "source": "auto",
-            "target": "ta",
-            "format": "text"
-        }
-
-        response = requests.post(LIBRE_URL, data=payload, timeout=10)
-
-        if response.status_code == 200:
-            return response.json().get("translatedText", "")
-        else:
-            return ""
-
+        translated = GoogleTranslator(
+            source="auto",
+            target="ta"
+        ).translate(text)
+        return translated
     except Exception:
         return ""
