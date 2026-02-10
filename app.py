@@ -1,6 +1,5 @@
-import streamlit as st
-from translator import translate_to_tamil
-from simplifier import simple_tamil, people_friendly_tamil
+from core.translator import translate_to_tamil
+from core.simplifier import simple_tamil, people_friendly_tamil
 
 st.set_page_config(page_title="Tamil Simplification System")
 
