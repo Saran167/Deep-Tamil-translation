@@ -1,56 +1,36 @@
 import streamlit as st
-from core.simplifier import simplify_modern_text
+from translator import translate_to_tamil
+from simplifier import simple_tamil, people_friendly_tamil
 
-# ------------------ Page Config ------------------
-st.set_page_config(
-    page_title="Tamil Language Simplifier",
-    page_icon="🪔",
-    layout="centered"
-)
+st.set_page_config(page_title="Tamil Simplifier", layout="centered")
 
-# ------------------ Title ------------------
-st.title("Tamil Language Simplifier")
-st.caption(
-    "Phase 1: Modern / Mixed Language → Simple Tamil | "
-    "Phase 2: Archaeological / Ancient Tamil → Simple Tamil"
-)
+st.title("Tamil Language Simplification System")
 
-# ------------------ Input Selection ------------------
-source_type = st.selectbox(
-    "Select input type",
-    [
-        "Modern / Mixed Language",
-        "Archaeological / Ancient Tamil"
-    ]
-)
+st.write("Enter text in **any language**. Output will be in simple, people-friendly Tamil.")
 
-user_text = st.text_area(
-    "Enter your text",
-    height=160,
-    placeholder="Paste text here..."
-)
+input_text = st.text_area("Enter your text", height=150)
 
-# ------------------ Action ------------------
-if st.button("Simplify"):
-    if not user_text.strip():
-        st.warning("Please enter some text.")
+if st.button("Convert"):
+    if input_text.strip() == "":
+        st.warning("Please enter some text")
     else:
-        # -------- Phase 1 --------
-        if source_type == "Modern / Mixed Language":
-            result = simplify_modern_text(user_text)
+        with st.spinner("Translating to Tamil..."):
+            tamil_text = translate_to_tamil(input_text)
+
+        if tamil_text == "":
+            st.error("Translation failed. Please try again.")
+        else:
+            st.subheader("Machine Translated Tamil")
+            st.write(tamil_text)
+
+            simple = simple_tamil(tamil_text)
+            friendly = people_friendly_tamil(simple)
 
             st.subheader("Simple Tamil")
-            st.write(result["simple_tamil"])
+            st.write(simple)
 
             st.subheader("People-Friendly Tamil")
-            st.write(result["people_tamil"])
-
-        # -------- Phase 2 (placeholder) --------
-        else:
-            st.info(
-                "Phase 2 (Archaeological / Ancient Tamil) "
-                "will be implemented in the next step."
-            )
+            st.write(friendly)
 
 
 
