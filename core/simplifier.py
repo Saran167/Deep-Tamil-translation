@@ -1,7 +1,7 @@
 def simple_tamil(text):
-    # Temporary placeholder
+    # Step 4 logic will come later
     return text
 
 def people_friendly_tamil(text):
-    # Temporary placeholder
+    # Step 5 logic will come later
     return text
