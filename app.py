@@ -1,17 +1,16 @@
 import streamlit as st
 import tempfile
 import json
-import os
 from gtts import gTTS
 
-# local imports
-from translator import translate_to_tamil
+# Import your custom IndicTrans module
+from indictrans_translator import indictrans_translator
+
+# Other imports
 from simplifier import simple_tamil, people_friendly_tamil
-from ancient_converter import convert_ancient_text
-from inscription_normalizer import normalize_stone_text
 from confidence import calculate_confidence
 
-# ----------------------------
+# -----------------------------------
 
 st.set_page_config(page_title="Tamil Language Processing System")
 
@@ -28,7 +27,9 @@ mode = st.selectbox(
 
 input_text = st.text_area("Enter your text", height=180)
 
-# ----------------------------
+# -----------------------------------
+# PROCESS BUTTON
+# -----------------------------------
 
 if st.button("Process"):
 
@@ -42,7 +43,7 @@ if st.button("Process"):
     if mode == "Any Language → Simple Tamil":
 
         with st.spinner("Translating..."):
-            tamil_text = translate_to_tamil(input_text)
+            tamil_text = indictrans_translator.translate(input_text, source_lang="auto", target_lang="ta")
 
         if tamil_text == "":
             st.error("Translation failed.")
@@ -103,7 +104,6 @@ if st.button("Process"):
                 tts.save(fp.name)
                 st.audio(fp.name)
 
-        # dataset viewer
         if st.checkbox("Show Research Dataset"):
             try:
                 with open("data/ancient_dataset.json", encoding="utf-8") as f:
@@ -117,6 +117,7 @@ if st.button("Process"):
 
             except:
                 st.error("Dataset not found.")
+
 
 
 
