@@ -1,14 +1,22 @@
 import streamlit as st
 import tempfile
 import json
+import sys
+import os
 from gtts import gTTS
 
-# Core modules
-from core.translator import translate_to_tamil
-from core.simplifier import simple_tamil, people_friendly_tamil
-from core.ancient_converter import convert_ancient_text
-from core.inscription_normalizer import normalize_stone_text
-from core.confidence import calculate_confidence
+# -----------------------------------
+# FIX FOR STREAMLIT CLOUD IMPORT PATH
+# -----------------------------------
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "core"))
+
+# Import core modules
+from translator import translate_to_tamil
+from simplifier import simple_tamil, people_friendly_tamil
+from ancient_converter import convert_ancient_text
+from inscription_normalizer import normalize_stone_text
+from confidence import calculate_confidence
 
 # -----------------------------------
 
@@ -18,7 +26,7 @@ st.title("🪔 Tamil Language Processing System")
 st.write("Multilingual Translation + Tamil Simplification + Archaeological Tamil Processing")
 
 # -----------------------------------
-# Mode Selection
+# MODE SELECTION
 # -----------------------------------
 
 mode = st.selectbox(
@@ -30,7 +38,7 @@ mode = st.selectbox(
 )
 
 # -----------------------------------
-# Input
+# INPUT BOX
 # -----------------------------------
 
 input_text = st.text_area("Enter your text", height=180)
@@ -56,7 +64,7 @@ if st.button("Process"):
                 tamil_text = translate_to_tamil(input_text)
 
             if tamil_text == "":
-                st.error("Translation failed. Check internet or API.")
+                st.error("Translation failed. Check internet.")
             else:
                 st.subheader("Machine Translated Tamil")
                 st.write(tamil_text)
@@ -83,19 +91,19 @@ if st.button("Process"):
 
             st.subheader("Archaeological Processing Pipeline")
 
-            # STEP 1 — Stone inscription normalization
+            # STEP 1 — Normalize stone text
             normalized = normalize_stone_text(input_text)
 
             st.subheader("Step 1: Normalized Text")
             st.write(normalized)
 
-            # STEP 2 — Ancient word conversion
+            # STEP 2 — Convert ancient words
             modern_text, detected_terms = convert_ancient_text(normalized)
 
             st.subheader("Step 2: Modern Tamil Output")
             st.write(modern_text)
 
-            # STEP 3 — Detected archaeological terms
+            # STEP 3 — Detected terms
             if detected_terms:
                 st.subheader("Step 3: Detected Archaeological Terms")
 
@@ -107,7 +115,7 @@ if st.button("Process"):
             else:
                 st.info("No archaeological terms detected.")
 
-            # STEP 4 — Confidence Score
+            # STEP 4 — Confidence score
             total_words = len(input_text.split())
             matched_words = len(detected_terms)
 
@@ -118,19 +126,23 @@ if st.button("Process"):
 
             # STEP 5 — Voice output
             st.subheader("Tamil Voice Output")
-            tts = gTTS(text=modern_text, lang="ta")
 
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
-                tts.save(fp.name)
-                st.audio(fp.name)
+            if modern_text.strip() != "":
+                tts = gTTS(text=modern_text, lang="ta")
 
-            # STEP 6 — Dataset Viewer
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as fp:
+                    tts.save(fp.name)
+                    st.audio(fp.name)
+
+            # STEP 6 — Dataset viewer
             st.subheader("Research Dataset")
 
             if st.checkbox("Show Ancient Tamil Dataset"):
 
                 try:
-                    with open("data/ancient_dataset.json", encoding="utf-8") as f:
+                    dataset_path = os.path.join("data", "ancient_dataset.json")
+
+                    with open(dataset_path, encoding="utf-8") as f:
                         dataset = json.load(f)
 
                     for item in dataset:
@@ -139,8 +151,9 @@ if st.button("Process"):
                         st.write("Source:", item["source"])
                         st.write("---")
 
-                except:
+                except Exception as e:
                     st.error("Dataset file not found. Check data folder.")
+
 
 
 
