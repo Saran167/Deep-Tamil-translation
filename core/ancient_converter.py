@@ -1,38 +1,50 @@
-# Ancient / Archaeological Tamil → Modern Tamil
+# Archaeological Tamil dictionary with metadata
 
-ANCIENT_WORD_MAP = {
-    "ஊரிற்": "ஊரில்",
-    "ஊரின்": "ஊரின்",
-    "புகுந்தான்": "நுழைந்தான்",
-    "சென்றான்": "போனான்",
-    "வந்தான்": "வந்தான்",
-    "இருந்தான்": "இருந்தான்",
-    "கொண்டான்": "எடுத்தான்",
-    "மகன்": "மகன்",
-    "மகள்": "மகள்",
-    "மன்னன்": "அரசன்",
-    "வேந்தன்": "அரசன்",
-    "படை": "ராணுவம்",
-    "நகர்": "நகரம்"
+INSCRIPTION_DICT = {
+    "ஊரிற்": {
+        "modern": "ஊரில்",
+        "meaning": "in the town",
+        "origin": "Classical Tamil suffix"
+    },
+    "புகுந்தான்": {
+        "modern": "நுழைந்தான்",
+        "meaning": "entered",
+        "origin": "Sangam usage"
+    },
+    "வேந்தன்": {
+        "modern": "அரசன்",
+        "meaning": "king",
+        "origin": "Sangam literature"
+    },
+    "மன்னன்": {
+        "modern": "அரசன்",
+        "meaning": "king",
+        "origin": "Ancient royal title"
+    },
+    "நகர்": {
+        "modern": "நகரம்",
+        "meaning": "city",
+        "origin": "Classical Tamil"
+    }
 }
 
-SUFFIX_RULES = {
-    "ஆன்": "ஆன்",
-    "ஆள்": "ஆள்",
-    "இன்": "இன்",
-    "இல்": "இல்",
-    "உம்": "உம்"
-}
-
-def ancient_to_modern(text):
+def convert_ancient_text(text):
     words = text.split()
     modern_words = []
+    detected_terms = []
 
     for word in words:
-        # Direct word mapping
-        if word in ANCIENT_WORD_MAP:
-            modern_words.append(ANCIENT_WORD_MAP[word])
+        if word in INSCRIPTION_DICT:
+            data = INSCRIPTION_DICT[word]
+            modern_words.append(data["modern"])
+            detected_terms.append({
+                "ancient": word,
+                "modern": data["modern"],
+                "meaning": data["meaning"],
+                "origin": data["origin"]
+            })
         else:
             modern_words.append(word)
 
-    return " ".join(modern_words)
+    return " ".join(modern_words), detected_terms
+
