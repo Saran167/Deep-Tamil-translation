@@ -1,4 +1,7 @@
-def calculate_confidence(total_words, matched_words):
-    if total_words == 0:
-        return 0
-    return round((matched_words / total_words) * 100, 2)
+def calculate_confidence(input_text, output_text):
+    if len(output_text) == 0:
+        return "Low"
+    elif len(output_text) > len(input_text) / 2:
+        return "High"
+    else:
+        return "Medium"
