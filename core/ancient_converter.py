@@ -1,39 +1,22 @@
-INSCRIPTION_DICT = {
-    "ஊரிற்": {
-        "modern": "ஊரில்",
-        "meaning": "in town",
-        "origin": "Classical Tamil"
-    },
-    "புகுந்தான்": {
-        "modern": "நுழைந்தான்",
-        "meaning": "entered",
-        "origin": "Sangam usage"
-    },
-    "வேந்தன்": {
-        "modern": "அரசன்",
-        "meaning": "king",
-        "origin": "Sangam literature"
-    }
-}
+import json
+
+def load_dictionary():
+    try:
+        with open("data/ancient_dictionary.json", "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
+
+dictionary = load_dictionary()
 
 def convert_ancient_text(text):
     words = text.split()
-    modern_words = []
-    detected = []
+    converted = []
 
-    for w in words:
-        if w in INSCRIPTION_DICT:
-            data = INSCRIPTION_DICT[w]
-            modern_words.append(data["modern"])
-            detected.append({
-                "ancient": w,
-                "modern": data["modern"],
-                "meaning": data["meaning"],
-                "origin": data["origin"]
-            })
-        else:
-            modern_words.append(w)
+    for word in words:
+        converted.append(dictionary.get(word, word))
 
-    return " ".join(modern_words), detected
+    return " ".join(converted)
+
 
 
